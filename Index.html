@@ -619,13 +619,88 @@ const JORNADA_FIM  = 16*60+48;
 const ALM_INI      = 11*60+40;
 const ALM_FIM      = 12*60+40;
 
-let records = JSON.parse(localStorage.getItem('picking_records') || '[]');
+// ── SUPABASE CONFIG ──
+const SUPA_URL = 'https://fekxueeafxhttntvgwwu.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZla3h1ZWVhZnhodHRudHZnd3d1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTM2MzQsImV4cCI6MjA5NDE4OTYzNH0.TJ8_m79Ly1jMKRgZWMnmHvPxyoO6FdtnipwwOw9UQNs';
+
+async function supa(path, method='GET', body=null){
+  const opts = {
+    method,
+    headers: {
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer ' + SUPA_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': method==='POST' ? 'return=representation' : ''
+    }
+  };
+  if(body) opts.body = JSON.stringify(body);
+  const res = await fetch(SUPA_URL + '/rest/v1/' + path, opts);
+  if(!res.ok){ const e=await res.text(); console.error('Supabase error:', e); return null; }
+  const txt = await res.text();
+  return txt ? JSON.parse(txt) : null;
+}
+
+// Cache local (para leituras rápidas entre recargas)
+let records = [];
+let colaboradores = [];
 let editId = null;
 let filtroStatus = 'todos';
 
 function hoje(){return new Date().toISOString().split('T')[0];}
 function fmtData(d){if(!d)return'—';const[a,m,di]=d.split('-');return`${di}/${m}/${a}`;}
 function nNum(v){return isNaN(Number(v))||v===''?0:Number(v);}
+
+// Mapear registro do Supabase para formato local
+function mapRec(r){
+  return {
+    id: r.id,
+    data: r.data,
+    colaborador: r.colaborador,
+    romaneio: r.romaneio||'',
+    qnt: r.qnt||0,
+    tipo: r.tipo||'',
+    falta: r.falta||0,
+    itensFalta: r.itens_falta||[],
+    enderecosConcatenados: r.enderecos_concatenados||'',
+    obs: r.obs||'',
+    finalizado: r.finalizado||false,
+    statusFalta: r.status_falta||'sem_falta',
+    faltaReal: r.falta_real||'',
+    faltaResultado: r.falta_resultado||'',
+    faltaObsVal: r.falta_obs_val||'',
+    faltaValidador: r.falta_validador||'',
+    faltaValidadoEm: r.falta_validado_em||''
+  };
+}
+
+// Mapear colaborador do Supabase para formato local
+function mapColab(c){
+  return { id: c.id, nome: c.nome, setor: c.setor||'', status: c.status||'Ativo', obs: c.obs||'' };
+}
+
+// Carregar todos os dados do Supabase
+async function carregarDados(){
+  mostrarLoading(true);
+  try{
+    const [recs, colabs] = await Promise.all([
+      supa('picking?order=criado_em.desc&limit=1000'),
+      supa('colaboradores?order=nome.asc')
+    ]);
+    records = (recs||[]).map(mapRec);
+    colaboradores = (colabs||[]).map(mapColab);
+  } catch(e){ console.error(e); toast('Erro ao carregar dados.','error'); }
+  mostrarLoading(false);
+}
+
+function mostrarLoading(v){
+  let el = document.getElementById('loading-overlay');
+  if(!el){ el=document.createElement('div'); el.id='loading-overlay';
+    el.style.cssText='position:fixed;inset:0;background:rgba(2,8,16,.85);z-index:999;display:flex;align-items:center;justify-content:center;font-family:Space Grotesk,sans-serif;';
+    el.innerHTML='<div style="text-align:center"><div style="font-size:1.5rem;margin-bottom:12px;">⟳</div><div style="color:var(--accent);font-size:.9rem;letter-spacing:.08em;">CARREGANDO...</div></div>';
+    document.body.appendChild(el);
+  }
+  el.style.display = v ? 'flex' : 'none';
+}
 
 function minutosTrabalhadosAte(agora){
   const agMin=agora.getHours()*60+agora.getMinutes();
@@ -653,7 +728,7 @@ function statusRitmo(feito, esperado){
   return{txt:`${diff} peças atrasado`,cor:'var(--danger)',icon:'▼',pct};
 }
 
-function save(){localStorage.setItem('picking_records',JSON.stringify(records));}
+// save() substituído por operações async do Supabase
 
 function toast(msg,type='info'){
   const c=document.getElementById('toast-container');
@@ -916,54 +991,49 @@ function popularItensFalta(itens){
   }, 50);
 }
 
-function salvarRegistro(){
+async function salvarRegistro(){
   const data=document.getElementById('f-data').value;
   const colab=document.getElementById('f-colaborador').value;
   const qnt=document.getElementById('f-qnt').value;
   if(!data||!colab||!qnt){toast('Preencha: data, colaborador e quantidade.','error');return;}
   const faltaDecl=nNum(document.getElementById('f-falta').value);
-  // Validar itens faltantes antes de salvar
   const erroItens = validarItensFalta();
   if(erroItens){toast(erroItens,'error');return;}
   const itensFalta=coletarItensFalta();
-  // Gerar string concatenada para exibição fácil
   const enderecosConcatenados=concatenarEnderecos(itensFalta);
-  const rec={
-    id:editId||Date.now(),
-    data,colaborador:colab,
+  const antigo=records.find(r=>r.id===editId)||{};
+
+  const payload={
+    data, colaborador:colab,
     romaneio:document.getElementById('f-romaneio').value,
     qnt:nNum(qnt),
     tipo:document.getElementById('f-tipo').value,
     falta:faltaDecl,
-    itensFalta,
-    enderecosConcatenados,
-    faltaReal:'',
-    dataFin:'',
+    itens_falta:itensFalta,
+    enderecos_concatenados:enderecosConcatenados,
     obs:document.getElementById('f-obs').value,
     finalizado:false,
-    statusFalta: faltaDecl>0 ? 'pendente' : 'sem_falta',
-    faltaResultado:'',
-    faltaObsVal:'',
-    faltaValidador:'',
-    faltaValidadoEm:''
+    status_falta: faltaDecl>0 ? (editId?(antigo.statusFalta||'pendente'):'pendente') : 'sem_falta',
+    falta_real: editId?(antigo.faltaReal||null):null,
+    falta_resultado: editId?(antigo.faltaResultado||null):null,
+    falta_obs_val: editId?(antigo.faltaObsVal||null):null,
+    falta_validador: editId?(antigo.faltaValidador||null):null,
+    falta_validado_em: editId?(antigo.faltaValidadoEm||null):null
   };
+
+  mostrarLoading(true);
+  let ok;
   if(editId){
-    // ao editar, preservar validação se já existir
-    const antigo=records.find(r=>r.id===editId)||{};
-    rec.statusFalta=faltaDecl>0?(antigo.statusFalta||'pendente'):'sem_falta';
-    rec.faltaReal=antigo.faltaReal||'';
-    rec.faltaResultado=antigo.faltaResultado||'';
-    rec.faltaObsVal=antigo.faltaObsVal||'';
-    rec.faltaValidador=antigo.faltaValidador||'';
-    rec.faltaValidadoEm=antigo.faltaValidadoEm||'';
-    records=records.map(r=>r.id===editId?rec:r);
+    ok = await supa(`picking?id=eq.${editId}`, 'PATCH', payload);
     toast('Registro atualizado!','success');
   } else {
-    records.unshift(rec);
+    ok = await supa('picking', 'POST', payload);
     if(faltaDecl>0) toast('Registro salvo! Falta enviada para tratamento.','info');
     else toast('Registro salvo!','success');
   }
-  save();resetForm();renderDashboard();goTo('registros');
+  await carregarDados();
+  mostrarLoading(false);
+  resetForm();renderDashboard();goTo('registros');
 }
 
 function cancelarEdicao(){resetForm();goTo('registros');}
@@ -983,15 +1053,20 @@ function editarRegistro(id){
   goTo('novo');
 }
 
-function excluirRegistro(id){
+async function excluirRegistro(id){
   if(!confirm('Excluir este registro?'))return;
-  records=records.filter(r=>r.id!==id);
-  save();renderRegistros();renderDashboard();toast('Registro excluído.','info');
+  mostrarLoading(true);
+  await supa(`picking?id=eq.${id}`,'DELETE');
+  await carregarDados();
+  mostrarLoading(false);
+  renderRegistros();renderDashboard();toast('Registro excluído.','info');
 }
 
-function toggleStatus(id){
-  records=records.map(r=>r.id===id?{...r,finalizado:!r.finalizado,dataFin:!r.finalizado?hoje():r.dataFin}:r);
-  save();renderRegistros();renderDashboard();
+async function toggleStatus(id){
+  const r=records.find(x=>x.id===id); if(!r)return;
+  await supa(`picking?id=eq.${id}`,'PATCH',{finalizado:!r.finalizado});
+  await carregarDados();
+  renderRegistros();renderDashboard();
 }
 
 function setFiltroStatus(v){
@@ -1420,7 +1495,7 @@ function fecharModalFalta(){
   modalFaltaId = null;
 }
 
-function confirmarValidacao(){
+async function confirmarValidacao(){
   if(!modalFaltaId)return;
   const validador = document.getElementById('mf-validador').value;
   if(!validador){toast('Selecione o responsável pela validação.','error');return;}
@@ -1428,18 +1503,17 @@ function confirmarValidacao(){
   const resultado = document.getElementById('mf-resultado').value;
   const obsVal = document.getElementById('mf-obs-val').value.trim();
 
-  records = records.map(r=>{
-    if(r.id!==modalFaltaId)return r;
-    return{...r,
-      faltaReal,
-      faltaResultado:resultado,
-      faltaObsVal:obsVal,
-      faltaValidador:validador,
-      faltaValidadoEm:new Date().toISOString(),
-      statusFalta:'validado'
-    };
+  mostrarLoading(true);
+  await supa(`picking?id=eq.${modalFaltaId}`,'PATCH',{
+    falta_real: faltaReal,
+    falta_resultado: resultado,
+    falta_obs_val: obsVal,
+    falta_validador: validador,
+    falta_validado_em: new Date().toISOString(),
+    status_falta: 'validado'
   });
-  save();
+  await carregarDados();
+  mostrarLoading(false);
   fecharModalFalta();
   atualizarBadgeFaltas();
   renderFaltas();
@@ -1453,13 +1527,10 @@ document.getElementById('modal-falta-overlay').addEventListener('click', functio
 });
 
 // ── COLABORADORES ──
-let colaboradores = JSON.parse(localStorage.getItem('picking_colaboradores') || '[]');
 let editColabId = null;
 let filtroColab = 'todos';
 
 function saveColabs(){
-  localStorage.setItem('picking_colaboradores', JSON.stringify(colaboradores));
-  // Sincronizar select do formulário de picking
   sincColabSelect();
 }
 
@@ -1471,26 +1542,28 @@ function sincColabSelect(){
     ativos.map(n=>`<option${n===cur?' selected':''}>${n}</option>`).join('');
 }
 
-function salvarColaborador(){
+async function salvarColaborador(){
   const nome = document.getElementById('cf-nome').value.trim();
   if(!nome){toast('Informe o nome do colaborador.','error');return;}
-  const c = {
-    id: editColabId || Date.now(),
+  if(!editColabId && colaboradores.find(x=>x.nome.toLowerCase()===nome.toLowerCase())){
+    toast('Já existe um colaborador com esse nome.','error');return;
+  }
+  const payload={
     nome,
     setor: document.getElementById('cf-setor').value.trim(),
     status: document.getElementById('cf-status').value,
     obs: document.getElementById('cf-obs').value.trim()
   };
+  mostrarLoading(true);
   if(editColabId){
-    colaboradores = colaboradores.map(x=>x.id===editColabId?c:x);
+    await supa(`colaboradores?id=eq.${editColabId}`,'PATCH',payload);
     toast('Colaborador atualizado!','success');
   } else {
-    if(colaboradores.find(x=>x.nome.toLowerCase()===nome.toLowerCase())){
-      toast('Já existe um colaborador com esse nome.','error');return;
-    }
-    colaboradores.push(c);
+    await supa('colaboradores','POST',payload);
     toast('Colaborador cadastrado!','success');
   }
+  await carregarDados();
+  mostrarLoading(false);
   saveColabs();
   cancelarColab();
   renderColaboradores();
@@ -1516,20 +1589,22 @@ function editarColab(id){
   document.getElementById('cf-nome').focus();
 }
 
-function excluirColab(id){
+async function excluirColab(id){
   if(!confirm('Excluir este colaborador?'))return;
-  colaboradores = colaboradores.filter(x=>x.id!==id);
+  mostrarLoading(true);
+  await supa(`colaboradores?id=eq.${id}`,'DELETE');
+  await carregarDados();
+  mostrarLoading(false);
   saveColabs();
   renderColaboradores();
   toast('Colaborador removido.','info');
 }
 
-function toggleStatusColab(id){
-  colaboradores = colaboradores.map(x=>{
-    if(x.id!==id)return x;
-    const next = x.status==='Ativo'?'Inativo':'Ativo';
-    return {...x, status:next};
-  });
+async function toggleStatusColab(id){
+  const col=colaboradores.find(x=>x.id===id); if(!col)return;
+  const next=col.status==='Ativo'?'Inativo':'Ativo';
+  await supa(`colaboradores?id=eq.${id}`,'PATCH',{status:next});
+  await carregarDados();
   saveColabs();
   renderColaboradores();
 }
@@ -1587,32 +1662,38 @@ function renderColaboradores(){
 
 // Init
 document.getElementById('f-data').value=hoje();
-document.getElementById('topbar-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'});
-renderDashboard();
-sincColabSelect();
-atualizarBadgeFaltas();
-// setar filtro de produtividade como 'hoje' por padrão
 document.getElementById('prod-data-ini').value=hoje();
 document.getElementById('prod-data-fim').value=hoje();
-
-// Auto-refresh a cada minuto para atualizar meta por hora
-setInterval(()=>{
-  const activeProd=document.getElementById('page-produtividade').classList.contains('active');
-  if(activeProd)renderProdutividade(); // refresca painel de horário
-  atualizarBadgeFaltas();
-  // atualiza badge do topbar
-  const pecasHoje=records.filter(r=>r.data===hoje()).reduce((s,r)=>s+r.qnt,0);
-  document.getElementById('meta-badge').textContent=`Meta: ${pecasHoje.toLocaleString('pt-BR')} / ${META} peças`;
-  document.getElementById('topbar-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'})+' '+horaAtual();
-}, 60000);
-
-// Mostrar hora no topbar
 document.getElementById('topbar-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'})+' '+horaAtual();
 
-// responsivo
 if(window.innerWidth<=768){
   document.getElementById('ham-btn').style.display='block';
 }
+
+// Carregar dados e inicializar
+(async()=>{
+  await carregarDados();
+  sincColabSelect();
+  atualizarBadgeFaltas();
+  renderDashboard();
+})();
+
+// Auto-refresh a cada 30 segundos
+setInterval(async()=>{
+  await carregarDados();
+  const activePage = document.querySelector('.page.active');
+  if(activePage){
+    const id = activePage.id;
+    if(id==='page-dashboard') renderDashboard();
+    if(id==='page-registros') renderRegistros();
+    if(id==='page-produtividade') renderProdutividade();
+    if(id==='page-faltas') renderFaltas();
+  }
+  atualizarBadgeFaltas();
+  const pecasHoje=records.filter(r=>r.data===hoje()).reduce((s,r)=>s+r.qnt,0);
+  document.getElementById('meta-badge').textContent=`Meta: ${pecasHoje.toLocaleString('pt-BR')} / ${META} peças`;
+  document.getElementById('topbar-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'})+' '+horaAtual();
+}, 30000);
 </script>
 </body>
 </html>
