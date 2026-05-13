@@ -153,10 +153,10 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
 .badge-danger{background:var(--dl);color:var(--danger);border:1px solid rgba(255,77,106,.3);}
 
 /* STATUS BTN inline */
-.status-toggle{padding:3px 10px;font-size:.65rem;font-weight:700;border-radius:var(--r-full);cursor:pointer;font-family:'Space Grotesk',sans-serif;transition:all .2s;border:1px solid;}
+.status-toggle{padding:3px 10px;font-size:.65rem;font-weight:700;border-radius:var(--r-full);cursor:default;font-family:'Space Grotesk',sans-serif;border:1px solid;}
 .status-toggle.open{background:var(--al);color:var(--accent);border-color:rgba(0,212,255,.3);}
 .status-toggle.done{background:var(--sl);color:var(--success);border-color:rgba(0,255,163,.3);}
-.status-toggle:hover{transform:scale(1.05);}
+
 
 /* PRODUTIVIDADE */
 .prod-bar-wrap{display:flex;align-items:center;gap:10px;}
@@ -772,7 +772,7 @@ function mapRec(r){
     enderecosConcatenados: r.enderecos_concatenados||'',
     obs: r.obs||'',
     finalizado: r.finalizado||false,
-    statusFalta: r.status_falta||'sem_falta',
+    statusFalta: r.status_falta || (r.falta>0 ? 'pendente' : 'sem_falta'),
     faltaReal: r.falta_real||'',
     faltaResultado: r.falta_resultado||'',
     faltaObsVal: r.falta_obs_val||'',
@@ -1240,7 +1240,7 @@ async function salvarRegistro(){
     itens_falta:itensFalta,
     enderecos_concatenados:enderecosConcatenados,
     obs:document.getElementById('f-obs').value,
-    finalizado:false,
+    finalizado: !!horaFimVal,
     status_falta: faltaDecl>0 ? (editId?(antigo.statusFalta||'pendente'):'pendente') : 'sem_falta',
     falta_real: editId?(antigo.faltaReal||null):null,
     falta_resultado: editId?(antigo.faltaResultado||null):null,
@@ -1357,7 +1357,7 @@ function renderRegistros(){
       <td style="font-family:'DM Mono',monospace;font-size:.75rem;color:${r.duracaoMin!=null?(r.duracaoMin<=30?'var(--success)':r.duracaoMin<=60?'var(--warn)':'var(--accent)'):'var(--muted)'}">${r.duracaoMin!=null?minParaHora(r.duracaoMin):'—'}</td>
       <td style="color:${nNum(r.falta)>0?'var(--danger)':'var(--muted)'}">${r.falta||'—'}</td>
       <td style="color:${nNum(r.faltaReal)>0?'var(--danger)':'var(--muted)'}">${r.faltaReal||'—'}</td>
-      <td><button class="status-toggle ${r.finalizado?'done':'open'}" onclick="toggleStatus(${r.id})">${r.finalizado?'✔ Concluído':'● Aberto'}</button></td>
+      <td><span class="status-toggle ${r.finalizado?'done':'open'}">${r.finalizado?'✔ Concluído':'● Aberto'}</span></td>
       <td class="td-muted" title="${r.obs||''}" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.obs||'—'}</td>
       <td>
         <div style="display:flex;gap:6px">
@@ -1820,7 +1820,7 @@ let filtroFalta = 'pendente';
 let modalFaltaId = null;
 
 function atualizarBadgeFaltas(){
-  const pendentes = records.filter(r=>r.statusFalta==='pendente').length;
+  const pendentes = records.filter(r=>nNum(r.falta)>0 && (r.statusFalta||'pendente')==='pendente' && r.statusFalta!=='sem_falta').length;
   const badge = document.getElementById('sb-faltas-badge');
   if(badge){
     badge.textContent = pendentes;
@@ -1842,9 +1842,12 @@ function filtradosFaltas(){
   const ini=document.getElementById('falt-data-ini').value;
   const fim=document.getElementById('falt-data-fim').value;
   return records.filter(r=>{
-    if(r.statusFalta==='sem_falta'||!r.falta||nNum(r.falta)===0) return false;
-    if(filtroFalta==='pendente' && r.statusFalta!=='pendente') return false;
-    if(filtroFalta==='validado' && r.statusFalta!=='validado') return false;
+    if(!r.falta||nNum(r.falta)===0) return false;
+    if(r.statusFalta==='sem_falta') return false;
+    // registros com falta > 0 e sem status definido tratados como pendente
+    const sf = r.statusFalta||'pendente';
+    if(filtroFalta==='pendente' && sf!=='pendente') return false;
+    if(filtroFalta==='validado' && sf!=='validado') return false;
     if(ini && r.data<ini) return false;
     if(fim && r.data>fim) return false;
     if(busca && !r.colaborador?.toLowerCase().includes(busca) && !r.romaneio?.toLowerCase().includes(busca)) return false;
@@ -1854,8 +1857,8 @@ function filtradosFaltas(){
 
 function renderFaltas(){
   const lista = filtradosFaltas();
-  const todos = records.filter(r=>r.falta && nNum(r.falta)>0);
-  const pendentes = todos.filter(r=>r.statusFalta==='pendente');
+  const todos = records.filter(r=>r.falta && nNum(r.falta)>0 && r.statusFalta!=='sem_falta');
+  const pendentes = todos.filter(r=>(r.statusFalta||'pendente')==='pendente');
   const validados = todos.filter(r=>r.statusFalta==='validado');
   const totalDecl = todos.reduce((s,r)=>s+nNum(r.falta),0);
   const totalReal = validados.reduce((s,r)=>s+nNum(r.faltaReal),0);
