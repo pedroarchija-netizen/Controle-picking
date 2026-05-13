@@ -1188,17 +1188,16 @@ function minParaHora(min){
 }
 
 async function salvarRegistro(){
-  const data=document.getElementById('f-data').value;
-  const colab=document.getElementById('f-colaborador').value;
-  const qnt=document.getElementById('f-qnt').value;
-  // usar data-ini como data do registro, fallback para f-data
-  if(!data) data = dataIniVal;
-  if(!data||!colab||!qnt){toast('Preencha: data início, colaborador e quantidade.','error');return;}
-  const faltaDecl=nNum(document.getElementById('f-falta').value);
   const dataIniVal = document.getElementById('f-data-ini').value;
   const horaIniVal = document.getElementById('f-hora-ini').value;
   const dataFimVal = document.getElementById('f-data-fim').value;
   const horaFimVal = document.getElementById('f-hora-fim').value;
+  // data do registro = data início da onda
+  const data = dataIniVal || document.getElementById('f-data').value;
+  const colab=document.getElementById('f-colaborador').value;
+  const qnt=document.getElementById('f-qnt').value;
+  if(!data||!colab||!qnt){toast('Preencha: data início, colaborador e quantidade.','error');return;}
+  const faltaDecl=nNum(document.getElementById('f-falta').value);
   const isHoraExtra = false;
   if(horaIniVal && horaFimVal && dataIniVal && dataFimVal){
     const dtI = new Date(dataIniVal+'T'+horaIniVal);
