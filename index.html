@@ -429,6 +429,24 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
           <label>Falta</label>
           <input type="number" id="f-falta" placeholder="0" min="0" oninput="atualizarItensFalta()"/>
         </div>
+        <div class="form-group">
+          <label>Hora início</label>
+          <input type="time" id="f-hora-ini" oninput="calcDuracao()"/>
+        </div>
+        <div class="form-group">
+          <label>Hora fim</label>
+          <input type="time" id="f-hora-fim" oninput="calcDuracao()"/>
+        </div>
+        <div class="form-group">
+          <label>Duração</label>
+          <div id="f-duracao-display" style="background:var(--surface3);border:1px solid var(--border2);border-radius:var(--rs);padding:9px 12px;font-family:'DM Mono',monospace;font-size:.84rem;color:var(--muted);min-height:38px;">—</div>
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;padding-top:20px;">
+          <label class="form-check" style="cursor:pointer;display:flex;align-items:center;gap:8px;">
+            <input type="checkbox" id="f-hora-extra" onchange="calcDuracao()" style="width:16px;height:16px;accent-color:var(--warn);cursor:pointer;"/>
+            <span style="font-size:.82rem;color:var(--warn);font-weight:600;">Hora extra</span>
+          </label>
+        </div>
         <div class="form-group full">
           <label>Observação do colaborador</label>
           <textarea id="f-obs" placeholder="Observações opcionais..." rows="2"></textarea>
@@ -467,12 +485,12 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
         <thead>
           <tr>
             <th>Data</th><th>Colaborador</th><th>Romaneio</th>
-            <th>Peças</th><th>Tipo</th><th>Falta</th><th>F.Real</th>
+            <th>Peças</th><th>Tipo</th><th>Início</th><th>Fim</th><th>Duração</th><th>Falta</th><th>F.Real</th>
             <th>Status</th><th>Obs.</th><th>Ações</th>
           </tr>
         </thead>
         <tbody id="tbody-registros">
-          <tr><td colspan="10"><div class="empty-state"><div class="empty-state-icon">📦</div><p>Nenhum registro ainda. Clique em "Novo Registro" para começar.</p></div></td></tr>
+          <tr><td colspan="13"><div class="empty-state"><div class="empty-state-icon">📦</div><p>Nenhum registro ainda. Clique em "Novo Registro" para começar.</p></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -755,7 +773,11 @@ function mapRec(r){
     faltaResultado: r.falta_resultado||'',
     faltaObsVal: r.falta_obs_val||'',
     faltaValidador: r.falta_validador||'',
-    faltaValidadoEm: r.falta_validado_em||''
+    faltaValidadoEm: r.falta_validado_em||'',
+    horaIni: r.hora_ini||'',
+    horaFim: r.hora_fim||'',
+    duracaoMin: r.duracao_min??null,
+    horaExtra: r.hora_extra||false
   };
 }
 
@@ -861,6 +883,11 @@ function resetForm(){
   document.getElementById('f-qnt').value='';
   document.getElementById('f-tipo').value='';
   document.getElementById('f-falta').value='';
+  document.getElementById('f-hora-ini').value='';
+  document.getElementById('f-hora-fim').value='';
+  const heEl=document.getElementById('f-hora-extra'); if(heEl) heEl.checked=false;
+  document.getElementById('f-duracao-display').textContent='—';
+  document.getElementById('f-duracao-display').style.color='var(--muted)';
   document.getElementById('f-obs').value='';
   limparItensFalta();
 }
@@ -1090,23 +1117,156 @@ function popularItensFalta(itens){
   }, 50);
 }
 
-async function salvarRegistro(){
+// Turnos válidos: 07:00–11:40 e 12:40–16:48
+function validarHoraTurno(hhmm){
+  if(!hhmm) return null;
+  const [h,m] = hhmm.split(':').map(Number);
+  const min = h*60+m;
+  if(min >= JORNADA_INI && min <= ALM_INI) return 'manha';
+  if(min >= ALM_FIM && min <= JORNADA_FIM) return 'tarde';
+  if(min > ALM_INI && min < ALM_FIM) return 'almoco';
+  return 'fora';
+}
+
+function calcDuracao(){
+  const ini = document.getElementById('f-hora-ini').value;
+  const fim = document.getElementById('f-hora-fim').value;
+  const el = document.getElementById('f-duracao-display');
+  const elIni = document.getElementById('f-hora-ini');
+  const elFim = document.getElementById('f-hora-fim');
+  const horaExtra = document.getElementById('f-hora-extra')?.checked || false;
+
+  // Resetar bordas
+  elIni.style.borderColor = '';
+  elFim.style.borderColor = '';
+
+  if(!ini && !fim){ el.textContent='—'; el.style.color='var(--muted)'; return; }
+
+  // Validar turno do início
+  if(ini){
+    const vIni = validarHoraTurno(ini);
+    if(vIni === 'almoco'){
+      el.textContent = '⚠ Início no horário de almoço (11:40–12:40)';
+      el.style.color = 'var(--danger)';
+      elIni.style.borderColor = 'var(--danger)';
+      return;
+    }
+    if(vIni === 'fora'){
+      el.textContent = '⚠ Início fora do turno (07:00–16:48)';
+      el.style.color = 'var(--danger)';
+      elIni.style.borderColor = 'var(--danger)';
+      return;
+    }
+  }
+
+  // Validar turno do fim
+  if(fim){
+    const vFim = validarHoraTurno(fim);
+    if(vFim === 'almoco'){
+      el.textContent = '⚠ Fim no horário de almoço (11:40–12:40)';
+      el.style.color = 'var(--danger)';
+      elFim.style.borderColor = 'var(--danger)';
+      return;
+    }
+    if(vFim === 'fora'){
+      el.textContent = '⚠ Fim fora do turno (07:00–16:48)';
+      el.style.color = 'var(--danger)';
+      elFim.style.borderColor = 'var(--danger)';
+      return;
+    }
+  }
+
+  if(!ini || !fim){ el.textContent='—'; el.style.color='var(--muted)'; return; }
+
+  const [hi,mi] = ini.split(':').map(Number);
+  const [hf,mf] = fim.split(':').map(Number);
+  const iniMin = hi*60+mi;
+  const fimMin = hf*60+mf;
+
+  if(fimMin <= iniMin){
+    el.textContent = '⚠ Hora fim deve ser maior que hora início';
+    el.style.color = 'var(--danger)';
+    elFim.style.borderColor = 'var(--danger)';
+    return;
+  }
+
+  // Calcular duração descontando almoço se a onda cruzar o intervalo
+  let diff = fimMin - iniMin;
+  // Se início antes do almoço e fim depois do almoço, descontar 60min
+  if(iniMin < ALM_INI && fimMin > ALM_FIM){
+    diff -= (ALM_FIM - ALM_INI);
+  } else if(iniMin < ALM_INI && fimMin > ALM_INI){
+    // fim caiu dentro do almoço — já validamos acima, mas por segurança
+    diff -= (fimMin - ALM_INI);
+  }
+
+  const h = Math.floor(diff/60);
+  const m = diff%60;
+  const txt = h>0 ? `${h}h ${String(m).padStart(2,'0')}min` : `${m}min`;
+  const labels = [];
+  if(iniMin < ALM_INI && fimMin > ALM_FIM) labels.push('almoço descontado');
+  if(horaExtra) labels.push('hora extra');
+  el.textContent = txt + (labels.length ? ' (' + labels.join(', ') + ')' : '');
+  el.style.color = horaExtra ? 'var(--warn)' : diff <= 30 ? 'var(--success)' : diff <= 60 ? 'var(--warn)' : 'var(--accent)';
+}
+
+function minParaHora(min){
+  if(!min && min!==0) return '—';
+  const h=Math.floor(min/60), m=min%60;
+  return h>0 ? `${h}h ${String(m).padStart(2,'0')}min` : `${m}min`;
+}
+
+function salvarRegistro(){
   const data=document.getElementById('f-data').value;
   const colab=document.getElementById('f-colaborador').value;
   const qnt=document.getElementById('f-qnt').value;
   if(!data||!colab||!qnt){toast('Preencha: data, colaborador e quantidade.','error');return;}
   const faltaDecl=nNum(document.getElementById('f-falta').value);
+  // Validar horários do turno
+  const horaIniVal = document.getElementById('f-hora-ini').value;
+  const horaFimVal = document.getElementById('f-hora-fim').value;
+  const isHoraExtra = document.getElementById('f-hora-extra')?.checked || false;
+  if(horaIniVal){
+    const v = validarHoraTurno(horaIniVal);
+    if(v==='almoco'){toast('Hora início está no horário de almoço (11:40–12:40).','error');return;}
+    if(v==='fora' && !isHoraExtra){toast('Hora início fora do turno. Marque "Hora extra" para confirmar.','error');return;}
+  }
+  if(horaFimVal){
+    const v = validarHoraTurno(horaFimVal);
+    if(v==='almoco'){toast('Hora fim está no horário de almoço (11:40–12:40).','error');return;}
+    if(v==='fora' && !isHoraExtra){toast('Hora fim fora do turno. Marque "Hora extra" para confirmar.','error');return;}
+  }
+  if(horaIniVal && horaFimVal){
+    const [hi,mi]=horaIniVal.split(':').map(Number);
+    const [hf,mf]=horaFimVal.split(':').map(Number);
+    if((hf*60+mf)<=(hi*60+mi)){toast('Hora fim deve ser maior que hora início.','error');return;}
+  }
   const erroItens = validarItensFalta();
   if(erroItens){toast(erroItens,'error');return;}
   const itensFalta=coletarItensFalta();
   const enderecosConcatenados=concatenarEnderecos(itensFalta);
   const antigo=records.find(r=>r.id===editId)||{};
 
+  const horaIni = document.getElementById('f-hora-ini').value;
+  const horaFim = document.getElementById('f-hora-fim').value;
+  let duracaoMin = null;
+  if(horaIni && horaFim){
+    const [hi,mi]=horaIni.split(':').map(Number);
+    const [hf,mf]=horaFim.split(':').map(Number);
+    let d=(hf*60+mf)-(hi*60+mi);
+    if(d<0)d+=24*60;
+    duracaoMin=d;
+  }
+
   const payload={
     data, colaborador:colab,
     romaneio:document.getElementById('f-romaneio').value,
     qnt:nNum(qnt),
     tipo:document.getElementById('f-tipo').value,
+    hora_ini: horaIni||null,
+    hora_fim: horaFim||null,
+    duracao_min: duracaoMin,
+    hora_extra: isHoraExtra,
     falta:faltaDecl,
     itens_falta:itensFalta,
     enderecos_concatenados:enderecosConcatenados,
@@ -1147,6 +1307,10 @@ function editarRegistro(id){
   document.getElementById('f-qnt').value=r.qnt||'';
   document.getElementById('f-tipo').value=r.tipo||'';
   document.getElementById('f-falta').value=r.falta||'';
+  document.getElementById('f-hora-ini').value=r.horaIni||'';
+  document.getElementById('f-hora-fim').value=r.horaFim||'';
+  const heEl2=document.getElementById('f-hora-extra'); if(heEl2) heEl2.checked=!!r.horaExtra;
+  calcDuracao();
   document.getElementById('f-obs').value=r.obs||'';
   if(r.itensFalta&&r.itensFalta.length) popularItensFalta(r.itensFalta);
   goTo('novo');
@@ -1208,7 +1372,7 @@ function renderRegistros(){
   document.getElementById('filter-count').textContent=`${data.length} registro${data.length!==1?'s':''}`;
   const tbody=document.getElementById('tbody-registros');
   if(!data.length){
-    tbody.innerHTML=`<tr><td colspan="10"><div class="empty-state"><div class="empty-state-icon">📦</div><p>Nenhum resultado com esses filtros.</p></div></td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="13"><div class="empty-state"><div class="empty-state-icon">📦</div><p>Nenhum resultado com esses filtros.</p></div></td></tr>`;
     return;
   }
   tbody.innerHTML=data.map(r=>`
@@ -1218,6 +1382,9 @@ function renderRegistros(){
       <td class="td-mono">${r.romaneio||'—'}</td>
       <td style="font-weight:600;color:var(--text)">${r.qnt.toLocaleString('pt-BR')}</td>
       <td class="td-muted">${r.tipo||'—'}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:.78rem;color:var(--text2)">${r.horaIni||'—'}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:.78rem;color:var(--text2)">${r.horaFim||'—'}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:.75rem;color:${r.duracaoMin!=null?(r.duracaoMin<=30?'var(--success)':r.duracaoMin<=60?'var(--warn)':'var(--accent)'):'var(--muted)'}">${r.duracaoMin!=null?minParaHora(r.duracaoMin):'—'}</td>
       <td style="color:${nNum(r.falta)>0?'var(--danger)':'var(--muted)'}">${r.falta||'—'}</td>
       <td style="color:${nNum(r.faltaReal)>0?'var(--danger)':'var(--muted)'}">${r.faltaReal||'—'}</td>
       <td><button class="status-toggle ${r.finalizado?'done':'open'}" onclick="toggleStatus(${r.id})">${r.finalizado?'✔ Concluído':'● Aberto'}</button></td>
