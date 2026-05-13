@@ -1197,6 +1197,20 @@ async function salvarRegistro(){
   const colab=document.getElementById('f-colaborador').value;
   const qnt=document.getElementById('f-qnt').value;
   if(!data||!colab||!qnt){toast('Preencha: data início, colaborador e quantidade.','error');return;}
+
+  // Verificar romaneio duplicado (ignorar o próprio registro ao editar)
+  const romaneioVal = document.getElementById('f-romaneio').value.trim();
+  if(romaneioVal){
+    const duplicado = records.find(r =>
+      r.romaneio && r.romaneio.trim().toLowerCase() === romaneioVal.toLowerCase()
+      && r.id !== editId
+    );
+    if(duplicado){
+      toast(`Onda "${romaneioVal}" já foi lançada por ${duplicado.colaborador} em ${fmtData(duplicado.data)}. Verifique antes de salvar.`, 'error');
+      return;
+    }
+  }
+
   const faltaDecl=nNum(document.getElementById('f-falta').value);
   const isHoraExtra = false;
   if(horaIniVal && horaFimVal && dataIniVal && dataFimVal){
