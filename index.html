@@ -1225,6 +1225,23 @@ async function salvarRegistro(){
     }
   }
 
+  // ── Lógica de status ──
+  // finalizado = true quando hora fim preenchida
+  const finalizado = !!horaFimVal;
+
+  // status_falta:
+  // - sem falta → 'sem_falta'
+  // - com falta e já validado → preservar 'validado'
+  // - com falta e não validado → 'pendente'
+  let statusFaltaPayload;
+  if(faltaDecl === 0){
+    statusFaltaPayload = 'sem_falta';
+  } else {
+    // preservar 'validado' se já foi validado
+    const jaValidado = editId && antigo.statusFalta === 'validado';
+    statusFaltaPayload = jaValidado ? 'validado' : 'pendente';
+  }
+
   const payload={
     data, colaborador:colab,
     romaneio:document.getElementById('f-romaneio').value,
@@ -1235,13 +1252,13 @@ async function salvarRegistro(){
     data_fim: dataFimVal||null,
     hora_fim: horaFimVal||null,
     duracao_min: duracaoMin,
-    hora_extra: isHoraExtra,
-    falta:faltaDecl,
-    itens_falta:itensFalta,
-    enderecos_concatenados:enderecosConcatenados,
-    obs:document.getElementById('f-obs').value,
-    finalizado: !!horaFimVal,
-    status_falta: faltaDecl>0 ? (editId?(antigo.statusFalta||'pendente'):'pendente') : 'sem_falta',
+    hora_extra: false,
+    falta: faltaDecl,
+    itens_falta: itensFalta,
+    enderecos_concatenados: enderecosConcatenados,
+    obs: document.getElementById('f-obs').value,
+    finalizado,
+    status_falta: statusFaltaPayload,
     falta_real: editId?(antigo.faltaReal||null):null,
     falta_resultado: editId?(antigo.faltaResultado||null):null,
     falta_obs_val: editId?(antigo.faltaObsVal||null):null,
@@ -1253,11 +1270,22 @@ async function salvarRegistro(){
   let ok;
   if(editId){
     ok = await supa(`picking?id=eq.${editId}`, 'PATCH', payload);
-    toast('Registro atualizado!','success');
+    if(finalizado && faltaDecl>0)
+      toast('Onda concluída! Falta enviada para tratamento.','info');
+    else if(finalizado)
+      toast('Onda concluída!','success');
+    else
+      toast('Registro atualizado!','success');
   } else {
     ok = await supa('picking', 'POST', payload);
-    if(faltaDecl>0) toast('Registro salvo! Falta enviada para tratamento.','info');
-    else toast('Registro salvo!','success');
+    if(finalizado && faltaDecl>0)
+      toast('Onda concluída! Falta enviada para tratamento.','info');
+    else if(finalizado)
+      toast('Onda concluída!','success');
+    else if(faltaDecl>0)
+      toast('Registro salvo! Adicione a hora fim ao concluir.','info');
+    else
+      toast('Registro salvo!','success');
   }
   await carregarDados();
   mostrarLoading(false);
