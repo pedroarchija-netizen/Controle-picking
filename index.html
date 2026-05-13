@@ -430,8 +430,16 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
           <input type="number" id="f-falta" placeholder="0" min="0" oninput="atualizarItensFalta()"/>
         </div>
         <div class="form-group">
+          <label>Data início</label>
+          <input type="date" id="f-data-ini" oninput="calcDuracao()"/>
+        </div>
+        <div class="form-group">
           <label>Hora início</label>
           <input type="time" id="f-hora-ini" oninput="calcDuracao()"/>
+        </div>
+        <div class="form-group">
+          <label>Data fim</label>
+          <input type="date" id="f-data-fim" oninput="calcDuracao()"/>
         </div>
         <div class="form-group">
           <label>Hora fim</label>
@@ -517,7 +525,7 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
     </div>
     <div class="kpi-bar" id="prod-kpi-bar">
       <div class="kpi a"><div class="kpi-label">Colaboradores Ativos</div><div class="kpi-value" id="pkpi-colab">0</div></div>
-      <div class="kpi g"><div class="kpi-label">Peças no Período</div><div class="kpi-value" id="pkpi-hoje">0</div></div>
+      <div class="kpi g"><div class="kpi-label">Peças finalizadas</div><div class="kpi-value" id="pkpi-hoje">0</div></div>
       <div class="kpi w"><div class="kpi-label" id="pkpi-meta-total-label">Meta Diária Total</div><div class="kpi-value" id="pkpi-meta-total">0</div></div>
       <div class="kpi a"><div class="kpi-label">% Meta Atingida</div><div class="kpi-value" id="pkpi-meta">0%</div></div>
       <div class="kpi g"><div class="kpi-label">Finalizados</div><div class="kpi-value" id="pkpi-fin">0</div></div>
@@ -775,7 +783,9 @@ function mapRec(r){
     faltaObsVal: r.falta_obs_val||'',
     faltaValidador: r.falta_validador||'',
     faltaValidadoEm: r.falta_validado_em||'',
+    dataIni: r.data_ini||'',
     horaIni: r.hora_ini||'',
+    dataFim: r.data_fim||'',
     horaFim: r.hora_fim||'',
     duracaoMin: r.duracao_min??null,
     horaExtra: r.hora_extra||false
@@ -884,7 +894,9 @@ function resetForm(){
   document.getElementById('f-qnt').value='';
   document.getElementById('f-tipo').value='';
   document.getElementById('f-falta').value='';
+  document.getElementById('f-data-ini').value='';
   document.getElementById('f-hora-ini').value='';
+  document.getElementById('f-data-fim').value='';
   document.getElementById('f-hora-fim').value='';
   const heEl=document.getElementById('f-hora-extra'); if(heEl) heEl.checked=false;
   document.getElementById('f-duracao-display').textContent='—';
@@ -1119,94 +1131,114 @@ function popularItensFalta(itens){
 }
 
 // Turnos válidos: 07:00–11:40 e 12:40–16:48
-function validarHoraTurno(hhmm){
+function validarHoraTurno(hhmm, horaExtra){
   if(!hhmm) return null;
   const [h,m] = hhmm.split(':').map(Number);
   const min = h*60+m;
+  if(min > ALM_INI && min < ALM_FIM) return 'almoco';
+  if(horaExtra) return 'ok'; // hora extra libera qualquer horário fora do almoço
   if(min >= JORNADA_INI && min <= ALM_INI) return 'manha';
   if(min >= ALM_FIM && min <= JORNADA_FIM) return 'tarde';
-  if(min > ALM_INI && min < ALM_FIM) return 'almoco';
   return 'fora';
 }
 
 function calcDuracao(){
-  const ini = document.getElementById('f-hora-ini').value;
-  const fim = document.getElementById('f-hora-fim').value;
-  const el = document.getElementById('f-duracao-display');
-  const elIni = document.getElementById('f-hora-ini');
-  const elFim = document.getElementById('f-hora-fim');
+  const dataIni = document.getElementById('f-data-ini').value;
+  const ini     = document.getElementById('f-hora-ini').value;
+  const dataFim = document.getElementById('f-data-fim').value;
+  const fim     = document.getElementById('f-hora-fim').value;
+  const el      = document.getElementById('f-duracao-display');
+  const elIni   = document.getElementById('f-hora-ini');
+  const elFim   = document.getElementById('f-hora-fim');
   const horaExtra = document.getElementById('f-hora-extra')?.checked || false;
 
-  // Resetar bordas
   elIni.style.borderColor = '';
   elFim.style.borderColor = '';
 
   if(!ini && !fim){ el.textContent='—'; el.style.color='var(--muted)'; return; }
 
-  // Validar turno do início
+  // Validar almoço (nunca permitido, nem com hora extra)
   if(ini){
-    const vIni = validarHoraTurno(ini);
-    if(vIni === 'almoco'){
+    const v = validarHoraTurno(ini, horaExtra);
+    if(v === 'almoco'){
       el.textContent = '⚠ Início no horário de almoço (11:40–12:40)';
-      el.style.color = 'var(--danger)';
-      elIni.style.borderColor = 'var(--danger)';
-      return;
+      el.style.color = 'var(--danger)'; elIni.style.borderColor = 'var(--danger)'; return;
     }
-    if(vIni === 'fora'){
-      el.textContent = '⚠ Início fora do turno (07:00–16:48)';
-      el.style.color = 'var(--danger)';
-      elIni.style.borderColor = 'var(--danger)';
-      return;
+    if(v === 'fora'){
+      el.textContent = '⚠ Início fora do turno. Marque "Hora extra" se necessário.';
+      el.style.color = 'var(--danger)'; elIni.style.borderColor = 'var(--danger)'; return;
     }
   }
-
-  // Validar turno do fim
   if(fim){
-    const vFim = validarHoraTurno(fim);
-    if(vFim === 'almoco'){
+    const v = validarHoraTurno(fim, horaExtra);
+    if(v === 'almoco'){
       el.textContent = '⚠ Fim no horário de almoço (11:40–12:40)';
-      el.style.color = 'var(--danger)';
-      elFim.style.borderColor = 'var(--danger)';
-      return;
+      el.style.color = 'var(--danger)'; elFim.style.borderColor = 'var(--danger)'; return;
     }
-    if(vFim === 'fora'){
-      el.textContent = '⚠ Fim fora do turno (07:00–16:48)';
-      el.style.color = 'var(--danger)';
-      elFim.style.borderColor = 'var(--danger)';
-      return;
+    if(v === 'fora'){
+      el.textContent = '⚠ Fim fora do turno. Marque "Hora extra" se necessário.';
+      el.style.color = 'var(--danger)'; elFim.style.borderColor = 'var(--danger)'; return;
     }
   }
 
   if(!ini || !fim){ el.textContent='—'; el.style.color='var(--muted)'; return; }
 
-  const [hi,mi] = ini.split(':').map(Number);
-  const [hf,mf] = fim.split(':').map(Number);
-  const iniMin = hi*60+mi;
-  const fimMin = hf*60+mf;
+  // Calcular duração considerando datas diferentes
+  const dtIni = dataIni ? new Date(dataIni + 'T' + ini + ':00') : null;
+  const dtFim = dataFim ? new Date(dataFim + 'T' + fim + ':00') : null;
 
-  if(fimMin <= iniMin){
-    el.textContent = '⚠ Hora fim deve ser maior que hora início';
-    el.style.color = 'var(--danger)';
-    elFim.style.borderColor = 'var(--danger)';
-    return;
+  let diff;
+  if(dtIni && dtFim){
+    diff = Math.round((dtFim - dtIni) / 60000); // diferença em minutos
+    if(diff < 0){
+      el.textContent = '⚠ Data/hora fim deve ser posterior ao início';
+      el.style.color = 'var(--danger)'; return;
+    }
+  } else {
+    // sem datas, calcular só pelas horas
+    const [hi,mi] = ini.split(':').map(Number);
+    const [hf,mf] = fim.split(':').map(Number);
+    diff = (hf*60+mf) - (hi*60+mi);
+    if(diff < 0){
+      el.textContent = '⚠ Hora fim deve ser maior que hora início (ou informe as datas)';
+      el.style.color = 'var(--danger)'; return;
+    }
   }
 
-  // Calcular duração descontando almoço se a onda cruzar o intervalo
-  let diff = fimMin - iniMin;
-  // Se início antes do almoço e fim depois do almoço, descontar 60min
-  if(iniMin < ALM_INI && fimMin > ALM_FIM){
-    diff -= (ALM_FIM - ALM_INI);
-  } else if(iniMin < ALM_INI && fimMin > ALM_INI){
-    // fim caiu dentro do almoço — já validamos acima, mas por segurança
-    diff -= (fimMin - ALM_INI);
+  // Descontar almoço se a onda cruzar o intervalo (pode ter múltiplos almoços em ondas longas)
+  let almocosDescontados = 0;
+  if(dtIni && dtFim){
+    let cursor = new Date(dtIni);
+    while(cursor < dtFim){
+      const minDia = cursor.getHours()*60 + cursor.getMinutes();
+      // Se cruzar o almoço nesse dia
+      const almIniDt = new Date(cursor); almIniDt.setHours(11,40,0,0);
+      const almFimDt = new Date(cursor); almFimDt.setHours(12,40,0,0);
+      if(dtIni < almFimDt && dtFim > almIniDt){
+        const sobreIni = Math.max(dtIni, almIniDt);
+        const sobreFim = Math.min(dtFim, almFimDt);
+        if(sobreFim > sobreIni){
+          diff -= Math.round((sobreFim - sobreIni)/60000);
+          almocosDescontados++;
+        }
+      }
+      cursor.setDate(cursor.getDate()+1);
+      cursor.setHours(0,0,0,0);
+    }
+  } else {
+    const [hi,mi] = ini.split(':').map(Number);
+    const [hf,mf] = fim.split(':').map(Number);
+    const iniMin = hi*60+mi, fimMin = hf*60+mf;
+    if(iniMin < ALM_INI && fimMin > ALM_FIM){ diff -= (ALM_FIM-ALM_INI); almocosDescontados++; }
   }
 
-  const h = Math.floor(diff/60);
-  const m = diff%60;
+  const h = Math.floor(diff/60), m = diff%60;
   const txt = h>0 ? `${h}h ${String(m).padStart(2,'0')}min` : `${m}min`;
   const labels = [];
-  if(iniMin < ALM_INI && fimMin > ALM_FIM) labels.push('almoço descontado');
+  if(almocosDescontados > 0) labels.push(almocosDescontados > 1 ? `${almocosDescontados} almoços descontados` : 'almoço descontado');
   if(horaExtra) labels.push('hora extra');
+  if(dataFim && dataFim !== dataIni) labels.push('onda noturna');
+
   el.textContent = txt + (labels.length ? ' (' + labels.join(', ') + ')' : '');
   el.style.color = horaExtra ? 'var(--warn)' : diff <= 30 ? 'var(--success)' : diff <= 60 ? 'var(--warn)' : 'var(--accent)';
 }
@@ -1224,23 +1256,29 @@ async function salvarRegistro(){
   if(!data||!colab||!qnt){toast('Preencha: data, colaborador e quantidade.','error');return;}
   const faltaDecl=nNum(document.getElementById('f-falta').value);
   // Validar horários do turno
+  const dataIniVal = document.getElementById('f-data-ini').value;
   const horaIniVal = document.getElementById('f-hora-ini').value;
+  const dataFimVal = document.getElementById('f-data-fim').value;
   const horaFimVal = document.getElementById('f-hora-fim').value;
   const isHoraExtra = document.getElementById('f-hora-extra')?.checked || false;
   if(horaIniVal){
-    const v = validarHoraTurno(horaIniVal);
+    const v = validarHoraTurno(horaIniVal, isHoraExtra);
     if(v==='almoco'){toast('Hora início está no horário de almoço (11:40–12:40).','error');return;}
-    if(v==='fora' && !isHoraExtra){toast('Hora início fora do turno. Marque "Hora extra" para confirmar.','error');return;}
+    if(v==='fora'){toast('Hora início fora do turno. Marque "Hora extra" para confirmar.','error');return;}
   }
   if(horaFimVal){
-    const v = validarHoraTurno(horaFimVal);
+    const v = validarHoraTurno(horaFimVal, isHoraExtra);
     if(v==='almoco'){toast('Hora fim está no horário de almoço (11:40–12:40).','error');return;}
-    if(v==='fora' && !isHoraExtra){toast('Hora fim fora do turno. Marque "Hora extra" para confirmar.','error');return;}
+    if(v==='fora'){toast('Hora fim fora do turno. Marque "Hora extra" para confirmar.','error');return;}
   }
-  if(horaIniVal && horaFimVal){
+  if(horaIniVal && horaFimVal && dataIniVal && dataFimVal){
+    const dtI = new Date(dataIniVal+'T'+horaIniVal);
+    const dtF = new Date(dataFimVal+'T'+horaFimVal);
+    if(dtF <= dtI){toast('Data/hora fim deve ser posterior ao início.','error');return;}
+  } else if(horaIniVal && horaFimVal && !dataIniVal && !dataFimVal){
     const [hi,mi]=horaIniVal.split(':').map(Number);
     const [hf,mf]=horaFimVal.split(':').map(Number);
-    if((hf*60+mf)<=(hi*60+mi)){toast('Hora fim deve ser maior que hora início.','error');return;}
+    if((hf*60+mf)<=(hi*60+mi)){toast('Hora fim deve ser maior que hora início (ou informe as datas).','error');return;}
   }
   const erroItens = validarItensFalta();
   if(erroItens){toast(erroItens,'error');return;}
@@ -1248,15 +1286,19 @@ async function salvarRegistro(){
   const enderecosConcatenados=concatenarEnderecos(itensFalta);
   const antigo=records.find(r=>r.id===editId)||{};
 
-  const horaIni = document.getElementById('f-hora-ini').value;
-  const horaFim = document.getElementById('f-hora-fim').value;
   let duracaoMin = null;
-  if(horaIni && horaFim){
-    const [hi,mi]=horaIni.split(':').map(Number);
-    const [hf,mf]=horaFim.split(':').map(Number);
-    let d=(hf*60+mf)-(hi*60+mi);
-    if(d<0)d+=24*60;
-    duracaoMin=d;
+  if(horaIniVal && horaFimVal){
+    if(dataIniVal && dataFimVal){
+      const dtI=new Date(dataIniVal+'T'+horaIniVal);
+      const dtF=new Date(dataFimVal+'T'+horaFimVal);
+      duracaoMin = Math.round((dtF-dtI)/60000);
+    } else {
+      const [hi,mi]=horaIniVal.split(':').map(Number);
+      const [hf,mf]=horaFimVal.split(':').map(Number);
+      let d=(hf*60+mf)-(hi*60+mi);
+      if(d<0)d+=24*60;
+      duracaoMin=d;
+    }
   }
 
   const payload={
@@ -1264,8 +1306,10 @@ async function salvarRegistro(){
     romaneio:document.getElementById('f-romaneio').value,
     qnt:nNum(qnt),
     tipo:document.getElementById('f-tipo').value,
-    hora_ini: horaIni||null,
-    hora_fim: horaFim||null,
+    data_ini: dataIniVal||null,
+    hora_ini: horaIniVal||null,
+    data_fim: dataFimVal||null,
+    hora_fim: horaFimVal||null,
     duracao_min: duracaoMin,
     hora_extra: isHoraExtra,
     falta:faltaDecl,
@@ -1308,7 +1352,9 @@ function editarRegistro(id){
   document.getElementById('f-qnt').value=r.qnt||'';
   document.getElementById('f-tipo').value=r.tipo||'';
   document.getElementById('f-falta').value=r.falta||'';
+  document.getElementById('f-data-ini').value=r.dataIni||'';
   document.getElementById('f-hora-ini').value=r.horaIni||'';
+  document.getElementById('f-data-fim').value=r.dataFim||'';
   document.getElementById('f-hora-fim').value=r.horaFim||'';
   const heEl2=document.getElementById('f-hora-extra'); if(heEl2) heEl2.checked=!!r.horaExtra;
   calcDuracao();
@@ -1713,10 +1759,12 @@ function renderProdutividade(){
     return Math.max(1,dias);
   };
 
-  // colaboradores ativos que trabalharam no período
-  const colabsNoPeriodo=[...new Set(periodoRecs.map(r=>r.colaborador))];
+  // Somente ondas finalizadas contam para produtividade
+  const periodoFin = periodoRecs.filter(r=>r.finalizado);
+  const colabsNoPeriodo=[...new Set(periodoFin.map(r=>r.colaborador))];
   const nColab=colabsNoPeriodo.length;
-  const pecasPeriodo=periodoRecs.reduce((s,r)=>s+r.qnt,0);
+  const pecasPeriodo=periodoFin.reduce((s,r)=>s+r.qnt,0);
+  const pecasTotalComAberto=periodoRecs.reduce((s,r)=>s+r.qnt,0);
   const dias=diasNoPeriodo();
   const metaTotalPeriodo=nColab*META*dias;
   const pctMeta=metaTotalPeriodo>0?Math.min(100,Math.round((pecasPeriodo/metaTotalPeriodo)*100)):0;
@@ -1730,7 +1778,7 @@ function renderProdutividade(){
   document.getElementById('pkpi-meta-total').textContent=metaTotalPeriodo.toLocaleString('pt-BR');
   document.getElementById('pkpi-meta-total-label').textContent=isHoje?'Meta Diária Total':'Meta do Período';
   document.getElementById('pkpi-meta').textContent=pctMeta+'%';
-  document.getElementById('pkpi-fin').textContent=periodoRecs.filter(r=>r.finalizado).length;
+  document.getElementById('pkpi-fin').textContent=periodoFin.length;
   document.getElementById('pkpi-aberto').textContent=periodoRecs.filter(r=>!r.finalizado).length;
 
   // Acompanhamento por horário
@@ -1739,13 +1787,17 @@ function renderProdutividade(){
   const minsTrab=minutosTrabalhadosAte(new Date());
   const percJornada=isHoje?Math.min(100,Math.round((minsTrab/MIN_EFETIVOS)*100)):100;
 
-  // mapa por colaborador
+  // mapa por colaborador — produtividade conta apenas ondas finalizadas
   const map={};
   periodoRecs.forEach(r=>{
-    if(!map[r.colaborador])map[r.colaborador]={total:0,ondas:0,finalizados:0};
-    map[r.colaborador].total+=r.qnt;
-    map[r.colaborador].ondas++;
-    if(r.finalizado)map[r.colaborador].finalizados++;
+    if(!map[r.colaborador])map[r.colaborador]={total:0,totalAberto:0,ondas:0,ondasAberto:0};
+    if(r.finalizado){
+      map[r.colaborador].total+=r.qnt;
+      map[r.colaborador].ondas++;
+    } else {
+      map[r.colaborador].totalAberto+=r.qnt;
+      map[r.colaborador].ondasAberto++;
+    }
   });
   const list=Object.entries(map).sort((a,b)=>b[1].total-a[1].total);
 
@@ -1817,7 +1869,10 @@ function renderProdutividade(){
         const barEsp=isHoje&&esp>0?Math.min(100,Math.round((esp/metaPorPessoa)*100)):percJornada;
         return`<tr>
           <td class="td-name">${col}</td>
-          <td style="font-weight:700;font-size:.95rem;color:var(--text)">${feito.toLocaleString('pt-BR')}</td>
+          <td>
+            <div style="font-weight:700;font-size:.95rem;color:var(--text)">${feito.toLocaleString('pt-BR')}</div>
+            ${s.totalAberto>0?`<div style="font-size:.65rem;color:var(--muted);margin-top:1px;">+${s.totalAberto.toLocaleString('pt-BR')} em aberto</div>`:''}
+          </td>
           ${isHoje?`<td style="font-family:'DM Mono',monospace;color:var(--warn);font-weight:600">${esp}</td>
           <td><span style="color:${colSit};font-family:'DM Mono',monospace;font-size:.78rem;font-weight:700">${icoSit} ${diff>=0?'+':''}${diff}</span></td>`:''}
           <td style="font-family:'DM Mono',monospace;font-size:.78rem;color:${faltaMeta===0?'var(--success)':'var(--muted)'}">${faltaMeta===0?'✔ Meta!':faltaMeta.toLocaleString('pt-BR')}</td>
@@ -1829,7 +1884,7 @@ function renderProdutividade(){
             </div>
             <div style="font-size:.6rem;color:var(--muted2);margin-top:2px;font-family:'DM Mono',monospace">${feito.toLocaleString('pt-BR')} / ${metaPorPessoa.toLocaleString('pt-BR')}</div>
           </td>
-          <td class="td-muted">${s.ondas}</td>
+          <td class="td-muted">${s.ondas}${s.ondasAberto>0?` <span style="color:var(--muted2);font-size:.7rem;">(+${s.ondasAberto} ab.)</span>`:''}</td>
         </tr>`;
       }).join('')}
       </tbody>
