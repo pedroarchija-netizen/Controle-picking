@@ -385,27 +385,24 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
       <div class="card-header">
         <div class="card-title"><div class="card-title-accent"></div><span id="form-title">Novo Registro de Picking</span></div>
       </div>
-      <div class="form-grid">
+      <!-- BLOCO 1: Início da onda -->
+      <div style="margin-bottom:6px;font-size:.65rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;display:flex;align-items:center;gap:8px;">
+        <div style="width:3px;height:14px;background:var(--accent);border-radius:2px;box-shadow:0 0 6px rgba(0,212,255,.5);"></div>
+        Início da onda
+      </div>
+      <div class="form-grid" style="margin-bottom:18px;">
         <div class="form-group">
-          <label>Data de Separação</label>
-          <input type="date" id="f-data"/>
+          <label>Data início</label>
+          <input type="date" id="f-data-ini" oninput="calcDuracao()"/>
+        </div>
+        <div class="form-group">
+          <label>Hora início</label>
+          <input type="time" id="f-hora-ini" oninput="calcDuracao()"/>
         </div>
         <div class="form-group">
           <label>Colaborador</label>
           <select id="f-colaborador">
             <option value="">Selecione...</option>
-            <option>Amanda</option><option>Ana Paula</option><option>Andreia</option>
-            <option>Bruno</option><option>Bueno</option><option>Camila</option>
-            <option>Cristiane</option><option>Gabriel</option><option>Ianca</option>
-            <option>Ingrid</option><option>Jaine</option><option>Jennifer Maria</option>
-            <option>Jessica</option><option>Jessica Lorrane</option><option>Juliana</option>
-            <option>Karolaine</option><option>Larissa</option><option>Laiane</option>
-            <option>Leticia</option><option>Luiz</option><option>Maria Clara</option>
-            <option>Maria Luiza</option><option>Natalia</option><option>Natanielle</option>
-            <option>Pamela</option><option>Rafaela</option><option>Raiza</option>
-            <option>Samile</option><option>Sillas</option><option>Suellen</option>
-            <option>Tania</option><option>Valeria</option><option>Vanuzia</option>
-            <option>Vivian</option><option>Outro</option>
           </select>
         </div>
         <div class="form-group">
@@ -425,18 +422,14 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
             <option>Retorno Pago</option>
           </select>
         </div>
-        <div class="form-group">
-          <label>Falta</label>
-          <input type="number" id="f-falta" placeholder="0" min="0" oninput="atualizarItensFalta()"/>
-        </div>
-        <div class="form-group">
-          <label>Data início</label>
-          <input type="date" id="f-data-ini" oninput="calcDuracao()"/>
-        </div>
-        <div class="form-group">
-          <label>Hora início</label>
-          <input type="time" id="f-hora-ini" oninput="calcDuracao()"/>
-        </div>
+      </div>
+
+      <!-- BLOCO 2: Fim da onda -->
+      <div style="margin-bottom:6px;font-size:.65rem;font-weight:700;color:var(--success);text-transform:uppercase;letter-spacing:.1em;display:flex;align-items:center;gap:8px;">
+        <div style="width:3px;height:14px;background:var(--success);border-radius:2px;box-shadow:0 0 6px rgba(0,255,163,.4);"></div>
+        Fim da onda
+      </div>
+      <div class="form-grid" style="margin-bottom:18px;">
         <div class="form-group">
           <label>Data fim</label>
           <input type="date" id="f-data-fim" oninput="calcDuracao()"/>
@@ -449,17 +442,19 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
           <label>Duração</label>
           <div id="f-duracao-display" style="background:var(--surface3);border:1px solid var(--border2);border-radius:var(--rs);padding:9px 12px;font-family:'DM Mono',monospace;font-size:.84rem;color:var(--muted);min-height:38px;">—</div>
         </div>
-        <div class="form-group" style="display:flex;align-items:center;padding-top:20px;">
-          <label class="form-check" style="cursor:pointer;display:flex;align-items:center;gap:8px;">
-            <input type="checkbox" id="f-hora-extra" onchange="calcDuracao()" style="width:16px;height:16px;accent-color:var(--warn);cursor:pointer;"/>
-            <span style="font-size:.82rem;color:var(--warn);font-weight:600;">Hora extra</span>
-          </label>
+        <div class="form-group">
+          <label>Falta</label>
+          <input type="number" id="f-falta" placeholder="0" min="0" oninput="atualizarItensFalta()"/>
         </div>
         <div class="form-group full">
-          <label>Observação do colaborador</label>
+          <label>Observação</label>
           <textarea id="f-obs" placeholder="Observações opcionais..." rows="2"></textarea>
         </div>
       </div>
+
+      <!-- campo oculto mantido para compatibilidade -->
+      <input type="hidden" id="f-data" />
+      <input type="hidden" id="f-hora-extra" />
 
       <!-- SEÇÃO DINÂMICA DE ITENS FALTANTES -->
       <div class="falta-section" id="falta-section">
@@ -888,17 +883,18 @@ function toggleMod(id){
 function resetForm(){
   editId=null;
   document.getElementById('form-title').textContent='Novo Registro de Picking';
-  document.getElementById('f-data').value=hoje();
+  document.getElementById('f-data-ini').value=hoje();
   document.getElementById('f-colaborador').value='';
   document.getElementById('f-romaneio').value='';
   document.getElementById('f-qnt').value='';
   document.getElementById('f-tipo').value='';
   document.getElementById('f-falta').value='';
-  document.getElementById('f-data-ini').value='';
+  document.getElementById('f-data-ini').value=hoje();
   document.getElementById('f-hora-ini').value='';
   document.getElementById('f-data-fim').value='';
   document.getElementById('f-hora-fim').value='';
-  const heEl=document.getElementById('f-hora-extra'); if(heEl) heEl.checked=false;
+  document.getElementById('f-duracao-display').textContent='—';
+  document.getElementById('f-duracao-display').style.color='var(--muted)';
   document.getElementById('f-duracao-display').textContent='—';
   document.getElementById('f-duracao-display').style.color='var(--muted)';
   document.getElementById('f-obs').value='';
@@ -1131,117 +1127,59 @@ function popularItensFalta(itens){
 }
 
 // Turnos válidos: 07:00–11:40 e 12:40–16:48
-function validarHoraTurno(hhmm, horaExtra){
-  if(!hhmm) return null;
-  const [h,m] = hhmm.split(':').map(Number);
-  const min = h*60+m;
-  if(min > ALM_INI && min < ALM_FIM) return 'almoco';
-  if(horaExtra) return 'ok'; // hora extra libera qualquer horário fora do almoço
-  if(min >= JORNADA_INI && min <= ALM_INI) return 'manha';
-  if(min >= ALM_FIM && min <= JORNADA_FIM) return 'tarde';
-  return 'fora';
-}
-
 function calcDuracao(){
   const dataIni = document.getElementById('f-data-ini').value;
   const ini     = document.getElementById('f-hora-ini').value;
   const dataFim = document.getElementById('f-data-fim').value;
   const fim     = document.getElementById('f-hora-fim').value;
   const el      = document.getElementById('f-duracao-display');
-  const elIni   = document.getElementById('f-hora-ini');
-  const elFim   = document.getElementById('f-hora-fim');
-  const horaExtra = document.getElementById('f-hora-extra')?.checked || false;
-
-  elIni.style.borderColor = '';
-  elFim.style.borderColor = '';
-
-  if(!ini && !fim){ el.textContent='—'; el.style.color='var(--muted)'; return; }
-
-  // Validar almoço (nunca permitido, nem com hora extra)
-  if(ini){
-    const v = validarHoraTurno(ini, horaExtra);
-    if(v === 'almoco'){
-      el.textContent = '⚠ Início no horário de almoço (11:40–12:40)';
-      el.style.color = 'var(--danger)'; elIni.style.borderColor = 'var(--danger)'; return;
-    }
-    if(v === 'fora'){
-      el.textContent = '⚠ Início fora do turno. Marque "Hora extra" se necessário.';
-      el.style.color = 'var(--danger)'; elIni.style.borderColor = 'var(--danger)'; return;
-    }
-  }
-  if(fim){
-    const v = validarHoraTurno(fim, horaExtra);
-    if(v === 'almoco'){
-      el.textContent = '⚠ Fim no horário de almoço (11:40–12:40)';
-      el.style.color = 'var(--danger)'; elFim.style.borderColor = 'var(--danger)'; return;
-    }
-    if(v === 'fora'){
-      el.textContent = '⚠ Fim fora do turno. Marque "Hora extra" se necessário.';
-      el.style.color = 'var(--danger)'; elFim.style.borderColor = 'var(--danger)'; return;
-    }
-  }
 
   if(!ini || !fim){ el.textContent='—'; el.style.color='var(--muted)'; return; }
 
-  // Calcular duração considerando datas diferentes
-  const dtIni = dataIni ? new Date(dataIni + 'T' + ini + ':00') : null;
-  const dtFim = dataFim ? new Date(dataFim + 'T' + fim + ':00') : null;
-
   let diff;
-  if(dtIni && dtFim){
-    diff = Math.round((dtFim - dtIni) / 60000); // diferença em minutos
+  if(dataIni && dataFim){
+    const dtI = new Date(dataIni + 'T' + ini + ':00');
+    const dtF = new Date(dataFim + 'T' + fim + ':00');
+    diff = Math.round((dtF - dtI) / 60000);
     if(diff < 0){
       el.textContent = '⚠ Data/hora fim deve ser posterior ao início';
       el.style.color = 'var(--danger)'; return;
     }
   } else {
-    // sem datas, calcular só pelas horas
     const [hi,mi] = ini.split(':').map(Number);
     const [hf,mf] = fim.split(':').map(Number);
     diff = (hf*60+mf) - (hi*60+mi);
-    if(diff < 0){
-      el.textContent = '⚠ Hora fim deve ser maior que hora início (ou informe as datas)';
-      el.style.color = 'var(--danger)'; return;
-    }
+    if(diff < 0) diff += 24*60;
   }
 
-  // Descontar almoço se a onda cruzar o intervalo (pode ter múltiplos almoços em ondas longas)
+  // Descontar almoços se a onda cruzar o intervalo 11:40–12:40
   let almocosDescontados = 0;
-  if(dtIni && dtFim){
-    let cursor = new Date(dtIni);
-    while(cursor < dtFim){
-      const minDia = cursor.getHours()*60 + cursor.getMinutes();
-      // Se cruzar o almoço nesse dia
+  if(dataIni && dataFim){
+    const dtI = new Date(dataIni + 'T' + ini + ':00');
+    const dtF = new Date(dataFim + 'T' + fim + ':00');
+    let cursor = new Date(dtI); cursor.setHours(0,0,0,0);
+    const fimLoop = new Date(dtF); fimLoop.setHours(23,59,59,0);
+    while(cursor <= fimLoop){
       const almIniDt = new Date(cursor); almIniDt.setHours(11,40,0,0);
       const almFimDt = new Date(cursor); almFimDt.setHours(12,40,0,0);
-      if(dtIni < almFimDt && dtFim > almIniDt){
-        const sobreIni = Math.max(dtIni, almIniDt);
-        const sobreFim = Math.min(dtFim, almFimDt);
-        if(sobreFim > sobreIni){
-          diff -= Math.round((sobreFim - sobreIni)/60000);
-          almocosDescontados++;
-        }
+      if(dtI < almFimDt && dtF > almIniDt){
+        const sobreIni = dtI > almIniDt ? dtI : almIniDt;
+        const sobreFim = dtF < almFimDt ? dtF : almFimDt;
+        if(sobreFim > sobreIni){ diff -= Math.round((sobreFim - sobreIni)/60000); almocosDescontados++; }
       }
       cursor.setDate(cursor.getDate()+1);
-      cursor.setHours(0,0,0,0);
     }
-  } else {
-    const [hi,mi] = ini.split(':').map(Number);
-    const [hf,mf] = fim.split(':').map(Number);
-    const iniMin = hi*60+mi, fimMin = hf*60+mf;
-    if(iniMin < ALM_INI && fimMin > ALM_FIM){ diff -= (ALM_FIM-ALM_INI); almocosDescontados++; }
   }
 
   const h = Math.floor(diff/60), m = diff%60;
   const txt = h>0 ? `${h}h ${String(m).padStart(2,'0')}min` : `${m}min`;
   const labels = [];
   if(almocosDescontados > 0) labels.push(almocosDescontados > 1 ? `${almocosDescontados} almoços descontados` : 'almoço descontado');
-  if(horaExtra) labels.push('hora extra');
-  if(dataFim && dataFim !== dataIni) labels.push('onda noturna');
-
+  if(dataFim && dataIni && dataFim !== dataIni) labels.push('onda noturna');
   el.textContent = txt + (labels.length ? ' (' + labels.join(', ') + ')' : '');
-  el.style.color = horaExtra ? 'var(--warn)' : diff <= 30 ? 'var(--success)' : diff <= 60 ? 'var(--warn)' : 'var(--accent)';
+  el.style.color = diff <= 30 ? 'var(--success)' : diff <= 60 ? 'var(--warn)' : 'var(--accent)';
 }
+
 
 function minParaHora(min){
   if(!min && min!==0) return '—';
@@ -1253,32 +1191,19 @@ async function salvarRegistro(){
   const data=document.getElementById('f-data').value;
   const colab=document.getElementById('f-colaborador').value;
   const qnt=document.getElementById('f-qnt').value;
-  if(!data||!colab||!qnt){toast('Preencha: data, colaborador e quantidade.','error');return;}
+  // usar data-ini como data do registro, fallback para f-data
+  if(!data) data = dataIniVal;
+  if(!data||!colab||!qnt){toast('Preencha: data início, colaborador e quantidade.','error');return;}
   const faltaDecl=nNum(document.getElementById('f-falta').value);
-  // Validar horários do turno
   const dataIniVal = document.getElementById('f-data-ini').value;
   const horaIniVal = document.getElementById('f-hora-ini').value;
   const dataFimVal = document.getElementById('f-data-fim').value;
   const horaFimVal = document.getElementById('f-hora-fim').value;
-  const isHoraExtra = document.getElementById('f-hora-extra')?.checked || false;
-  if(horaIniVal){
-    const v = validarHoraTurno(horaIniVal, isHoraExtra);
-    if(v==='almoco'){toast('Hora início está no horário de almoço (11:40–12:40).','error');return;}
-    if(v==='fora'){toast('Hora início fora do turno. Marque "Hora extra" para confirmar.','error');return;}
-  }
-  if(horaFimVal){
-    const v = validarHoraTurno(horaFimVal, isHoraExtra);
-    if(v==='almoco'){toast('Hora fim está no horário de almoço (11:40–12:40).','error');return;}
-    if(v==='fora'){toast('Hora fim fora do turno. Marque "Hora extra" para confirmar.','error');return;}
-  }
+  const isHoraExtra = false;
   if(horaIniVal && horaFimVal && dataIniVal && dataFimVal){
     const dtI = new Date(dataIniVal+'T'+horaIniVal);
     const dtF = new Date(dataFimVal+'T'+horaFimVal);
     if(dtF <= dtI){toast('Data/hora fim deve ser posterior ao início.','error');return;}
-  } else if(horaIniVal && horaFimVal && !dataIniVal && !dataFimVal){
-    const [hi,mi]=horaIniVal.split(':').map(Number);
-    const [hf,mf]=horaFimVal.split(':').map(Number);
-    if((hf*60+mf)<=(hi*60+mi)){toast('Hora fim deve ser maior que hora início (ou informe as datas).','error');return;}
   }
   const erroItens = validarItensFalta();
   if(erroItens){toast(erroItens,'error');return;}
@@ -1352,11 +1277,10 @@ function editarRegistro(id){
   document.getElementById('f-qnt').value=r.qnt||'';
   document.getElementById('f-tipo').value=r.tipo||'';
   document.getElementById('f-falta').value=r.falta||'';
-  document.getElementById('f-data-ini').value=r.dataIni||'';
+  document.getElementById('f-data-ini').value=r.dataIni||r.data||'';
   document.getElementById('f-hora-ini').value=r.horaIni||'';
   document.getElementById('f-data-fim').value=r.dataFim||'';
   document.getElementById('f-hora-fim').value=r.horaFim||'';
-  const heEl2=document.getElementById('f-hora-extra'); if(heEl2) heEl2.checked=!!r.horaExtra;
   calcDuracao();
   document.getElementById('f-obs').value=r.obs||'';
   if(r.itensFalta&&r.itensFalta.length) popularItensFalta(r.itensFalta);
@@ -2203,7 +2127,7 @@ function renderColaboradores(){
 }
 
 // Init
-document.getElementById('f-data').value=hoje();
+document.getElementById('f-data-ini').value=hoje();
 document.getElementById('prod-data-ini').value=hoje();
 document.getElementById('prod-data-fim').value=hoje();
 document.getElementById('dash-data-ini').value=hoje();
