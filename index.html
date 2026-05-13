@@ -1,4 +1,4 @@
-1<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8"/>
@@ -280,22 +280,96 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
 
   <!-- DASHBOARD -->
   <section class="page active" id="page-dashboard">
+
+    <!-- Filtro de data -->
+    <div class="filter-bar" style="margin-bottom:18px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600;">De</label>
+        <input type="date" id="dash-data-ini" onchange="renderDashboard()" style="width:150px;"/>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600;">Até</label>
+        <input type="date" id="dash-data-fim" onchange="renderDashboard()" style="width:150px;"/>
+      </div>
+      <button class="filter-btn on" id="dbtn-hoje" onclick="setDashFiltro('hoje')">Hoje</button>
+      <button class="filter-btn" id="dbtn-semana" onclick="setDashFiltro('semana')">Esta semana</button>
+      <button class="filter-btn" id="dbtn-mes" onclick="setDashFiltro('mes')">Este mês</button>
+      <button class="filter-btn" id="dbtn-tudo" onclick="setDashFiltro('tudo')" style="color:var(--muted);">Tudo</button>
+      <span class="filter-count" id="dash-periodo-label">Hoje</span>
+    </div>
+
+    <!-- KPIs principais -->
     <div class="kpi-bar" id="kpi-bar">
-      <div class="kpi a"><div class="kpi-label">Registros Hoje</div><div class="kpi-value" id="kpi-hoje">0</div></div>
-      <div class="kpi g"><div class="kpi-label">Peças Hoje</div><div class="kpi-value" id="kpi-pecas">0</div></div>
+      <div class="kpi a"><div class="kpi-label">Registros</div><div class="kpi-value" id="kpi-hoje">0</div></div>
+      <div class="kpi g"><div class="kpi-label">Peças separadas</div><div class="kpi-value" id="kpi-pecas">0</div></div>
       <div class="kpi w"><div class="kpi-label">Em Aberto</div><div class="kpi-value" id="kpi-abertos">0</div></div>
       <div class="kpi g"><div class="kpi-label">Finalizados</div><div class="kpi-value" id="kpi-finalizados">0</div></div>
+      <div class="kpi d"><div class="kpi-label">Faltas declaradas</div><div class="kpi-value" id="kpi-faltas">0</div></div>
       <div class="kpi a"><div class="kpi-label">Total Geral</div><div class="kpi-value" id="kpi-total">0</div></div>
     </div>
 
-    <div class="progress-wrap">
+    <!-- Barra de meta (só hoje) -->
+    <div class="progress-wrap" id="dash-meta-wrap">
       <div class="progress-label">
-        <span>Meta diária — <span style="color:var(--accent)" id="prog-label-val">0</span> / 485 peças</span>
+        <span>Meta diária — <span style="color:var(--accent)" id="prog-label-val">0</span> / <span id="prog-meta-total">0</span> peças</span>
         <span style="color:var(--accent);font-family:'DM Mono',monospace" id="prog-pct">0%</span>
       </div>
       <div class="progress-bg"><div class="progress-fill" id="progress-fill" style="width:0%;background:linear-gradient(90deg,#00D4FF,#00FFA3);"></div></div>
     </div>
 
+    <!-- Grid: Destaque + Tipos + Comparativo -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
+
+      <!-- Colaborador destaque -->
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header" style="margin-bottom:12px;">
+          <div class="card-title"><div class="card-title-accent" style="background:var(--warn)"></div>⭐ Destaque do período</div>
+        </div>
+        <div id="dash-destaque">
+          <div class="empty-state" style="padding:20px 0"><p>Sem dados</p></div>
+        </div>
+      </div>
+
+      <!-- Peças por tipo -->
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header" style="margin-bottom:12px;">
+          <div class="card-title"><div class="card-title-accent" style="background:var(--purple)"></div>Peças por tipo</div>
+        </div>
+        <div id="dash-tipos">
+          <div class="empty-state" style="padding:20px 0"><p>Sem dados</p></div>
+        </div>
+      </div>
+
+      <!-- Comparativo hoje vs ontem -->
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header" style="margin-bottom:12px;">
+          <div class="card-title"><div class="card-title-accent" style="background:var(--success)"></div>Hoje vs Ontem</div>
+        </div>
+        <div id="dash-comparativo">
+          <div class="empty-state" style="padding:20px 0"><p>Sem dados</p></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Evolução da semana -->
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-header" style="margin-bottom:16px;">
+        <div class="card-title"><div class="card-title-accent"></div>Evolução semanal — peças por dia</div>
+      </div>
+      <div id="dash-semana" style="padding:8px 0;"></div>
+    </div>
+
+    <!-- Dias com meta atingida no mês -->
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-header" style="margin-bottom:16px;">
+        <div class="card-title"><div class="card-title-accent" style="background:var(--success)"></div>Meta diária — calendário do mês</div>
+        <span style="font-size:.7rem;color:var(--muted);" id="dash-cal-mes"></span>
+      </div>
+      <div id="dash-calendario"></div>
+    </div>
+
+    <!-- Últimos registros -->
     <div class="card">
       <div class="card-header">
         <div class="card-title"><div class="card-title-accent"></div>Últimos registros</div>
@@ -355,6 +429,24 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
           <label>Falta</label>
           <input type="number" id="f-falta" placeholder="0" min="0" oninput="atualizarItensFalta()"/>
         </div>
+        <div class="form-group">
+          <label>Hora início</label>
+          <input type="time" id="f-hora-ini" oninput="calcDuracao()"/>
+        </div>
+        <div class="form-group">
+          <label>Hora fim</label>
+          <input type="time" id="f-hora-fim" oninput="calcDuracao()"/>
+        </div>
+        <div class="form-group">
+          <label>Duração</label>
+          <div id="f-duracao-display" style="background:var(--surface3);border:1px solid var(--border2);border-radius:var(--rs);padding:9px 12px;font-family:'DM Mono',monospace;font-size:.84rem;color:var(--muted);min-height:38px;">—</div>
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;padding-top:20px;">
+          <label class="form-check" style="cursor:pointer;display:flex;align-items:center;gap:8px;">
+            <input type="checkbox" id="f-hora-extra" onchange="calcDuracao()" style="width:16px;height:16px;accent-color:var(--warn);cursor:pointer;"/>
+            <span style="font-size:.82rem;color:var(--warn);font-weight:600;">Hora extra</span>
+          </label>
+        </div>
         <div class="form-group full">
           <label>Observação do colaborador</label>
           <textarea id="f-obs" placeholder="Observações opcionais..." rows="2"></textarea>
@@ -393,12 +485,12 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
         <thead>
           <tr>
             <th>Data</th><th>Colaborador</th><th>Romaneio</th>
-            <th>Peças</th><th>Tipo</th><th>Falta</th><th>F.Real</th>
+            <th>Peças</th><th>Tipo</th><th>Início</th><th>Fim</th><th>Duração</th><th>Falta</th><th>F.Real</th>
             <th>Status</th><th>Obs.</th><th>Ações</th>
           </tr>
         </thead>
         <tbody id="tbody-registros">
-          <tr><td colspan="10"><div class="empty-state"><div class="empty-state-icon">📦</div><p>Nenhum registro ainda. Clique em "Novo Registro" para começar.</p></div></td></tr>
+          <tr><td colspan="13"><div class="empty-state"><div class="empty-state-icon">📦</div><p>Nenhum registro ainda. Clique em "Novo Registro" para começar.</p></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -610,6 +702,7 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
 
 </main>
 
+
 <script>
 const META = 492;
 // Jornada 07:00–16:48, almoço 11:40–12:40 → 528 min efetivos
@@ -681,7 +774,11 @@ function mapRec(r){
     faltaResultado: r.falta_resultado||'',
     faltaObsVal: r.falta_obs_val||'',
     faltaValidador: r.falta_validador||'',
-    faltaValidadoEm: r.falta_validado_em||''
+    faltaValidadoEm: r.falta_validado_em||'',
+    horaIni: r.hora_ini||'',
+    horaFim: r.hora_fim||'',
+    duracaoMin: r.duracao_min??null,
+    horaExtra: r.hora_extra||false
   };
 }
 
@@ -787,6 +884,11 @@ function resetForm(){
   document.getElementById('f-qnt').value='';
   document.getElementById('f-tipo').value='';
   document.getElementById('f-falta').value='';
+  document.getElementById('f-hora-ini').value='';
+  document.getElementById('f-hora-fim').value='';
+  const heEl=document.getElementById('f-hora-extra'); if(heEl) heEl.checked=false;
+  document.getElementById('f-duracao-display').textContent='—';
+  document.getElementById('f-duracao-display').style.color='var(--muted)';
   document.getElementById('f-obs').value='';
   limparItensFalta();
 }
@@ -853,6 +955,10 @@ function criarItemFalta(idx){
         <label>SKU</label>
         <input type="text" class="fi-sku" placeholder="Ex: SKU-00123"/>
       </div>
+    </div>
+    <div class="form-group fi-desc-wrap" style="display:none;margin-top:8px;">
+      <label>Descrição da peça</label>
+      <input type="text" class="fi-desc" placeholder="Ex: Calça jeans azul tam. M"/>
     </div>`;
   return div;
 }
@@ -916,7 +1022,8 @@ function trocarTipoEndereco(sel){
   }
 
   skuWrap.style.display = 'block';
-  // mover sku para o final do grid (já é o último filho)
+  const descWrap = item.querySelector('.fi-desc-wrap');
+  if(descWrap) descWrap.style.display = 'block';
 }
 
 function coletarItensFalta(){
@@ -924,6 +1031,7 @@ function coletarItensFalta(){
   document.querySelectorAll('#falta-itens-wrap .falta-item').forEach((item, i)=>{
     const tipo = item.querySelector('.fi-tipo').value;
     const sku = (item.querySelector('.fi-sku')?.value||'').trim();
+    const descricao = (item.querySelector('.fi-desc')?.value||'').trim();
     let endereco = '';
     if(tipo === 'arara'){
       const num = item.querySelector('.fi-arara-num')?.value||'';
@@ -933,9 +1041,9 @@ function coletarItensFalta(){
       const letra = item.querySelector('.fi-rua-letra')?.value||'';
       const bloco = item.querySelector('.fi-rua-bloco')?.value||'';
       const end   = item.querySelector('.fi-rua-end')?.value||'';
-      if(letra && bloco && end) endereco = `Rua ${letra} Bloco ${bloco} Nº ${end}`;
+      if(letra && bloco && end) endereco = `Rua ${letra} ${end} Bloco ${bloco}`;
     }
-    itens.push({tipo, endereco, sku});
+    itens.push({tipo, endereco, sku, descricao});
   });
   return itens;
 }
@@ -952,6 +1060,8 @@ function validarItensFalta(){
     if(!tipo) return `Falta ${n}: selecione o tipo de endereço (Arara ou Rua).`;
     const sku = (item.querySelector('.fi-sku')?.value||'').trim();
     if(!sku) return `Falta ${n}: informe o SKU.`;
+    const desc = (item.querySelector('.fi-desc')?.value||'').trim();
+    if(!desc) return `Falta ${n}: informe a descrição da peça.`;
     if(tipo === 'arara'){
       const num = item.querySelector('.fi-arara-num')?.value||'';
       const bloco = item.querySelector('.fi-arara-bloco')?.value||'';
@@ -972,7 +1082,7 @@ function validarItensFalta(){
 // Retorna string concatenada de todos os endereços+SKU para exibição
 function concatenarEnderecos(itens){
   if(!itens||!itens.length) return '';
-  return itens.map((it,i)=>`${i+1}. ${it.endereco||'—'} | SKU: ${it.sku||'—'}`).join('  ·  ');
+  return itens.map((it,i)=>`${i+1}. ${it.endereco||'—'} | SKU: ${it.sku||'—'} | ${it.descricao||'—'}`).join('  ·  ');
 }
 
 function limparItensFalta(){
@@ -996,14 +1106,115 @@ function popularItensFalta(itens){
           const m = (it.endereco||'').match(/Arara\s*(\d+)\s*Bloco\s*(\d+)/i);
           if(m){item.querySelector('.fi-arara-num').value=m[1];item.querySelector('.fi-arara-bloco').value=m[2];}
         } else if(it.tipo==='rua'){
-          const m = (it.endereco||'').match(/Rua\s*(\S+)\s*Bloco\s*(\d+)\s*N[°º]?\s*(\d+)/i);
-          if(m){item.querySelector('.fi-rua-letra').value=m[1];item.querySelector('.fi-rua-bloco').value=m[2];item.querySelector('.fi-rua-end').value=m[3];}
+          const m = (it.endereco||'').match(/Rua\s*(\S+)\s+(\d+)\s+Bloco\s*(\d+)/i);
+          if(m){item.querySelector('.fi-rua-letra').value=m[1];item.querySelector('.fi-rua-end').value=m[2];item.querySelector('.fi-rua-bloco').value=m[3];}
         }
         const skuEl = item.querySelector('.fi-sku');
         if(skuEl) skuEl.value = it.sku||'';
+        const descEl = item.querySelector('.fi-desc');
+        if(descEl) descEl.value = it.descricao||'';
       }, 50);
     });
   }, 50);
+}
+
+// Turnos válidos: 07:00–11:40 e 12:40–16:48
+function validarHoraTurno(hhmm){
+  if(!hhmm) return null;
+  const [h,m] = hhmm.split(':').map(Number);
+  const min = h*60+m;
+  if(min >= JORNADA_INI && min <= ALM_INI) return 'manha';
+  if(min >= ALM_FIM && min <= JORNADA_FIM) return 'tarde';
+  if(min > ALM_INI && min < ALM_FIM) return 'almoco';
+  return 'fora';
+}
+
+function calcDuracao(){
+  const ini = document.getElementById('f-hora-ini').value;
+  const fim = document.getElementById('f-hora-fim').value;
+  const el = document.getElementById('f-duracao-display');
+  const elIni = document.getElementById('f-hora-ini');
+  const elFim = document.getElementById('f-hora-fim');
+  const horaExtra = document.getElementById('f-hora-extra')?.checked || false;
+
+  // Resetar bordas
+  elIni.style.borderColor = '';
+  elFim.style.borderColor = '';
+
+  if(!ini && !fim){ el.textContent='—'; el.style.color='var(--muted)'; return; }
+
+  // Validar turno do início
+  if(ini){
+    const vIni = validarHoraTurno(ini);
+    if(vIni === 'almoco'){
+      el.textContent = '⚠ Início no horário de almoço (11:40–12:40)';
+      el.style.color = 'var(--danger)';
+      elIni.style.borderColor = 'var(--danger)';
+      return;
+    }
+    if(vIni === 'fora'){
+      el.textContent = '⚠ Início fora do turno (07:00–16:48)';
+      el.style.color = 'var(--danger)';
+      elIni.style.borderColor = 'var(--danger)';
+      return;
+    }
+  }
+
+  // Validar turno do fim
+  if(fim){
+    const vFim = validarHoraTurno(fim);
+    if(vFim === 'almoco'){
+      el.textContent = '⚠ Fim no horário de almoço (11:40–12:40)';
+      el.style.color = 'var(--danger)';
+      elFim.style.borderColor = 'var(--danger)';
+      return;
+    }
+    if(vFim === 'fora'){
+      el.textContent = '⚠ Fim fora do turno (07:00–16:48)';
+      el.style.color = 'var(--danger)';
+      elFim.style.borderColor = 'var(--danger)';
+      return;
+    }
+  }
+
+  if(!ini || !fim){ el.textContent='—'; el.style.color='var(--muted)'; return; }
+
+  const [hi,mi] = ini.split(':').map(Number);
+  const [hf,mf] = fim.split(':').map(Number);
+  const iniMin = hi*60+mi;
+  const fimMin = hf*60+mf;
+
+  if(fimMin <= iniMin){
+    el.textContent = '⚠ Hora fim deve ser maior que hora início';
+    el.style.color = 'var(--danger)';
+    elFim.style.borderColor = 'var(--danger)';
+    return;
+  }
+
+  // Calcular duração descontando almoço se a onda cruzar o intervalo
+  let diff = fimMin - iniMin;
+  // Se início antes do almoço e fim depois do almoço, descontar 60min
+  if(iniMin < ALM_INI && fimMin > ALM_FIM){
+    diff -= (ALM_FIM - ALM_INI);
+  } else if(iniMin < ALM_INI && fimMin > ALM_INI){
+    // fim caiu dentro do almoço — já validamos acima, mas por segurança
+    diff -= (fimMin - ALM_INI);
+  }
+
+  const h = Math.floor(diff/60);
+  const m = diff%60;
+  const txt = h>0 ? `${h}h ${String(m).padStart(2,'0')}min` : `${m}min`;
+  const labels = [];
+  if(iniMin < ALM_INI && fimMin > ALM_FIM) labels.push('almoço descontado');
+  if(horaExtra) labels.push('hora extra');
+  el.textContent = txt + (labels.length ? ' (' + labels.join(', ') + ')' : '');
+  el.style.color = horaExtra ? 'var(--warn)' : diff <= 30 ? 'var(--success)' : diff <= 60 ? 'var(--warn)' : 'var(--accent)';
+}
+
+function minParaHora(min){
+  if(!min && min!==0) return '—';
+  const h=Math.floor(min/60), m=min%60;
+  return h>0 ? `${h}h ${String(m).padStart(2,'0')}min` : `${m}min`;
 }
 
 async function salvarRegistro(){
@@ -1012,17 +1223,51 @@ async function salvarRegistro(){
   const qnt=document.getElementById('f-qnt').value;
   if(!data||!colab||!qnt){toast('Preencha: data, colaborador e quantidade.','error');return;}
   const faltaDecl=nNum(document.getElementById('f-falta').value);
+  // Validar horários do turno
+  const horaIniVal = document.getElementById('f-hora-ini').value;
+  const horaFimVal = document.getElementById('f-hora-fim').value;
+  const isHoraExtra = document.getElementById('f-hora-extra')?.checked || false;
+  if(horaIniVal){
+    const v = validarHoraTurno(horaIniVal);
+    if(v==='almoco'){toast('Hora início está no horário de almoço (11:40–12:40).','error');return;}
+    if(v==='fora' && !isHoraExtra){toast('Hora início fora do turno. Marque "Hora extra" para confirmar.','error');return;}
+  }
+  if(horaFimVal){
+    const v = validarHoraTurno(horaFimVal);
+    if(v==='almoco'){toast('Hora fim está no horário de almoço (11:40–12:40).','error');return;}
+    if(v==='fora' && !isHoraExtra){toast('Hora fim fora do turno. Marque "Hora extra" para confirmar.','error');return;}
+  }
+  if(horaIniVal && horaFimVal){
+    const [hi,mi]=horaIniVal.split(':').map(Number);
+    const [hf,mf]=horaFimVal.split(':').map(Number);
+    if((hf*60+mf)<=(hi*60+mi)){toast('Hora fim deve ser maior que hora início.','error');return;}
+  }
   const erroItens = validarItensFalta();
   if(erroItens){toast(erroItens,'error');return;}
   const itensFalta=coletarItensFalta();
   const enderecosConcatenados=concatenarEnderecos(itensFalta);
   const antigo=records.find(r=>r.id===editId)||{};
 
+  const horaIni = document.getElementById('f-hora-ini').value;
+  const horaFim = document.getElementById('f-hora-fim').value;
+  let duracaoMin = null;
+  if(horaIni && horaFim){
+    const [hi,mi]=horaIni.split(':').map(Number);
+    const [hf,mf]=horaFim.split(':').map(Number);
+    let d=(hf*60+mf)-(hi*60+mi);
+    if(d<0)d+=24*60;
+    duracaoMin=d;
+  }
+
   const payload={
     data, colaborador:colab,
     romaneio:document.getElementById('f-romaneio').value,
     qnt:nNum(qnt),
     tipo:document.getElementById('f-tipo').value,
+    hora_ini: horaIni||null,
+    hora_fim: horaFim||null,
+    duracao_min: duracaoMin,
+    hora_extra: isHoraExtra,
     falta:faltaDecl,
     itens_falta:itensFalta,
     enderecos_concatenados:enderecosConcatenados,
@@ -1063,6 +1308,10 @@ function editarRegistro(id){
   document.getElementById('f-qnt').value=r.qnt||'';
   document.getElementById('f-tipo').value=r.tipo||'';
   document.getElementById('f-falta').value=r.falta||'';
+  document.getElementById('f-hora-ini').value=r.horaIni||'';
+  document.getElementById('f-hora-fim').value=r.horaFim||'';
+  const heEl2=document.getElementById('f-hora-extra'); if(heEl2) heEl2.checked=!!r.horaExtra;
+  calcDuracao();
   document.getElementById('f-obs').value=r.obs||'';
   if(r.itensFalta&&r.itensFalta.length) popularItensFalta(r.itensFalta);
   goTo('novo');
@@ -1124,7 +1373,7 @@ function renderRegistros(){
   document.getElementById('filter-count').textContent=`${data.length} registro${data.length!==1?'s':''}`;
   const tbody=document.getElementById('tbody-registros');
   if(!data.length){
-    tbody.innerHTML=`<tr><td colspan="10"><div class="empty-state"><div class="empty-state-icon">📦</div><p>Nenhum resultado com esses filtros.</p></div></td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="13"><div class="empty-state"><div class="empty-state-icon">📦</div><p>Nenhum resultado com esses filtros.</p></div></td></tr>`;
     return;
   }
   tbody.innerHTML=data.map(r=>`
@@ -1134,6 +1383,9 @@ function renderRegistros(){
       <td class="td-mono">${r.romaneio||'—'}</td>
       <td style="font-weight:600;color:var(--text)">${r.qnt.toLocaleString('pt-BR')}</td>
       <td class="td-muted">${r.tipo||'—'}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:.78rem;color:var(--text2)">${r.horaIni||'—'}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:.78rem;color:var(--text2)">${r.horaFim||'—'}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:.75rem;color:${r.duracaoMin!=null?(r.duracaoMin<=30?'var(--success)':r.duracaoMin<=60?'var(--warn)':'var(--accent)'):'var(--muted)'}">${r.duracaoMin!=null?minParaHora(r.duracaoMin):'—'}</td>
       <td style="color:${nNum(r.falta)>0?'var(--danger)':'var(--muted)'}">${r.falta||'—'}</td>
       <td style="color:${nNum(r.faltaReal)>0?'var(--danger)':'var(--muted)'}">${r.faltaReal||'—'}</td>
       <td><button class="status-toggle ${r.finalizado?'done':'open'}" onclick="toggleStatus(${r.id})">${r.finalizado?'✔ Concluído':'● Aberto'}</button></td>
@@ -1148,24 +1400,244 @@ function renderRegistros(){
   `).join('');
 }
 
+// filtro dashboard
+let dashFiltro = 'hoje';
+
+function setDashFiltro(v){
+  dashFiltro = v;
+  const t = hoje();
+  const ini = document.getElementById('dash-data-ini');
+  const fim = document.getElementById('dash-data-fim');
+  if(v==='hoje'){ini.value=t;fim.value=t;}
+  else if(v==='semana'){
+    const d=new Date();const dow=d.getDay()||7;
+    d.setDate(d.getDate()-dow+1);
+    ini.value=d.toISOString().split('T')[0];fim.value=t;
+  }
+  else if(v==='mes'){ini.value=t.slice(0,7)+'-01';fim.value=t;}
+  else if(v==='tudo'){ini.value='';fim.value='';}
+  ['hoje','semana','mes','tudo'].forEach(s=>{
+    const el=document.getElementById('dbtn-'+s);
+    if(el)el.classList.toggle('on',s===v);
+  });
+  renderDashboard();
+}
+
+function recordsDashPeriodo(){
+  const ini=document.getElementById('dash-data-ini')?.value||'';
+  const fim=document.getElementById('dash-data-fim')?.value||'';
+  return records.filter(r=>{
+    if(ini&&r.data<ini)return false;
+    if(fim&&r.data>fim)return false;
+    return true;
+  });
+}
+
 function renderDashboard(){
   const t=hoje();
-  const hoje_records=records.filter(r=>r.data===t);
-  const pecasHoje=hoje_records.reduce((s,r)=>s+r.qnt,0);
-  const pct=Math.min(100,Math.round(pecasHoje/META*100));
+  const ini=document.getElementById('dash-data-ini')?.value||t;
+  const fim=document.getElementById('dash-data-fim')?.value||t;
+  const isHoje=ini===t&&fim===t;
+  const recs=recordsDashPeriodo();
 
-  document.getElementById('kpi-hoje').textContent=hoje_records.length;
-  document.getElementById('kpi-pecas').textContent=pecasHoje.toLocaleString('pt-BR');
-  document.getElementById('kpi-abertos').textContent=records.filter(r=>!r.finalizado).length;
-  document.getElementById('kpi-finalizados').textContent=records.filter(r=>r.finalizado).length;
+  // label período
+  const lbl=document.getElementById('dash-periodo-label');
+  if(lbl){
+    if(!ini&&!fim)lbl.textContent='Todo o período';
+    else if(isHoje)lbl.textContent='Hoje — '+t.split('-').reverse().join('/');
+    else if(ini===fim)lbl.textContent=ini.split('-').reverse().join('/');
+    else lbl.textContent=(ini?ini.split('-').reverse().join('/'):'início')+' → '+(fim?fim.split('-').reverse().join('/'):'hoje');
+  }
+
+  // KPIs
+  const pecas=recs.reduce((s,r)=>s+r.qnt,0);
+  const faltas=recs.reduce((s,r)=>s+nNum(r.falta),0);
+  document.getElementById('kpi-hoje').textContent=recs.length;
+  document.getElementById('kpi-pecas').textContent=pecas.toLocaleString('pt-BR');
+  document.getElementById('kpi-abertos').textContent=recs.filter(r=>!r.finalizado).length;
+  document.getElementById('kpi-finalizados').textContent=recs.filter(r=>r.finalizado).length;
+  document.getElementById('kpi-faltas').textContent=faltas;
   document.getElementById('kpi-total').textContent=records.length;
 
-  document.getElementById('prog-label-val').textContent=pecasHoje.toLocaleString('pt-BR');
-  document.getElementById('prog-pct').textContent=pct+'%';
-  document.getElementById('progress-fill').style.width=pct+'%';
-  document.getElementById('progress-fill').style.background=pct>=100?'linear-gradient(90deg,#00FFA3,#00D4FF)':'linear-gradient(90deg,#00D4FF,#00FFA3)';
-  document.getElementById('meta-badge').textContent=`Meta: ${pecasHoje.toLocaleString('pt-BR')} / ${META} peças`;
+  // Barra de meta (só hoje)
+  const metaWrap=document.getElementById('dash-meta-wrap');
+  if(isHoje){
+    metaWrap.style.display='block';
+    const nColab=[...new Set(recs.map(r=>r.colaborador))].length||1;
+    const metaTotal=nColab*META;
+    const pct=Math.min(100,Math.round(pecas/metaTotal*100));
+    document.getElementById('prog-label-val').textContent=pecas.toLocaleString('pt-BR');
+    document.getElementById('prog-meta-total').textContent=metaTotal.toLocaleString('pt-BR');
+    document.getElementById('prog-pct').textContent=pct+'%';
+    document.getElementById('progress-fill').style.width=pct+'%';
+    document.getElementById('progress-fill').style.background=pct>=100?'linear-gradient(90deg,#00FFA3,#00D4FF)':'linear-gradient(90deg,#00D4FF,#00FFA3)';
+    document.getElementById('meta-badge').textContent=`Meta: ${pecas.toLocaleString('pt-BR')} / ${metaTotal.toLocaleString('pt-BR')} peças`;
+  } else {
+    metaWrap.style.display='none';
+  }
 
+  // ── COLABORADOR DESTAQUE ──
+  const mapColab={};
+  recs.forEach(r=>{
+    if(!mapColab[r.colaborador])mapColab[r.colaborador]={pecas:0,ondas:0};
+    mapColab[r.colaborador].pecas+=r.qnt;
+    mapColab[r.colaborador].ondas++;
+  });
+  const rankColab=Object.entries(mapColab).sort((a,b)=>b[1].pecas-a[1].pecas);
+  const destWrap=document.getElementById('dash-destaque');
+  if(!rankColab.length){
+    destWrap.innerHTML='<div class="empty-state" style="padding:16px 0"><p>Sem dados</p></div>';
+  } else {
+    const top=rankColab[0];
+    const maxP=top[1].pecas;
+    destWrap.innerHTML=rankColab.slice(0,5).map(([nome,s],i)=>{
+      const w=maxP>0?Math.round((s.pecas/maxP)*100):0;
+      const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+      const cor=i===0?'var(--warn)':i===1?'var(--muted)':'var(--muted2)';
+      return `<div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span style="font-size:.82rem;font-weight:${i===0?700:500};color:${i===0?'var(--text)':'var(--text2)'};">${medal} ${nome}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:.78rem;font-weight:700;color:${i===0?'var(--warn)':'var(--muted)'}">${s.pecas.toLocaleString('pt-BR')}</span>
+        </div>
+        <div style="background:var(--surface3);border-radius:99px;height:5px;">
+          <div style="width:${w}%;height:5px;border-radius:99px;background:${i===0?'var(--warn)':'var(--surface4)'};transition:width .5s;"></div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── PEÇAS POR TIPO ──
+  const mapTipo={'Vendas':0,'Doação':0,'Retorno Pago':0,'Outros':0};
+  recs.forEach(r=>{
+    const k=Object.keys(mapTipo).includes(r.tipo)?r.tipo:'Outros';
+    mapTipo[k]+=r.qnt;
+  });
+  const totalTipo=Object.values(mapTipo).reduce((s,v)=>s+v,0)||1;
+  const corTipo={'Vendas':'var(--accent)','Doação':'var(--success)','Retorno Pago':'var(--purple)','Outros':'var(--muted)'};
+  document.getElementById('dash-tipos').innerHTML=Object.entries(mapTipo).filter(([,v])=>v>0).map(([tipo,v])=>{
+    const w=Math.round((v/totalTipo)*100);
+    return `<div style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-size:.8rem;color:var(--text2);">${tipo}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:.78rem;color:${corTipo[tipo]};font-weight:600;">${v.toLocaleString('pt-BR')} <span style="color:var(--muted);font-weight:400">(${w}%)</span></span>
+      </div>
+      <div style="background:var(--surface3);border-radius:99px;height:6px;">
+        <div style="width:${w}%;height:6px;border-radius:99px;background:${corTipo[tipo]};transition:width .5s;"></div>
+      </div>
+    </div>`;
+  }).join('') || '<div class="empty-state" style="padding:16px 0"><p>Sem dados</p></div>';
+
+  // ── COMPARATIVO HOJE VS ONTEM ──
+  const ontem=new Date();ontem.setDate(ontem.getDate()-1);
+  const ontemStr=ontem.toISOString().split('T')[0];
+  const recsHoje=records.filter(r=>r.data===t);
+  const recsOntem=records.filter(r=>r.data===ontemStr);
+  const pHoje=recsHoje.reduce((s,r)=>s+r.qnt,0);
+  const pOntem=recsOntem.reduce((s,r)=>s+r.qnt,0);
+  const diff=pHoje-pOntem;
+  const diffPct=pOntem>0?Math.round((diff/pOntem)*100):null;
+  const compCor=diff>=0?'var(--success)':'var(--danger)';
+  const compIco=diff>=0?'▲':'▼';
+  document.getElementById('dash-comparativo').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+      <div style="background:var(--surface2);border-radius:var(--rs);padding:12px;text-align:center;">
+        <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">Hoje</div>
+        <div style="font-family:'DM Mono',monospace;font-size:1.4rem;font-weight:700;color:var(--accent)">${pHoje.toLocaleString('pt-BR')}</div>
+        <div style="font-size:.65rem;color:var(--muted)">${recsHoje.length} ondas</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:var(--rs);padding:12px;text-align:center;">
+        <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">Ontem</div>
+        <div style="font-family:'DM Mono',monospace;font-size:1.4rem;font-weight:700;color:var(--text)">${pOntem.toLocaleString('pt-BR')}</div>
+        <div style="font-size:.65rem;color:var(--muted)">${recsOntem.length} ondas</div>
+      </div>
+    </div>
+    <div style="text-align:center;padding:8px;background:var(--surface2);border-radius:var(--rs);">
+      <span style="font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:700;color:${compCor}">${compIco} ${Math.abs(diff).toLocaleString('pt-BR')} peças</span>
+      ${diffPct!==null?`<span style="font-size:.75rem;color:var(--muted);margin-left:6px;">(${diffPct>0?'+':''}${diffPct}%)</span>`:''}
+      <div style="font-size:.65rem;color:var(--muted);margin-top:3px;">${diff>=0?'acima de ontem':'abaixo de ontem'}</div>
+    </div>`;
+
+  // ── EVOLUÇÃO SEMANAL ──
+  const dias7=[];
+  for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);dias7.push(d.toISOString().split('T')[0]);}
+  const semDados=dias7.map(d=>({
+    d, label:new Date(d+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit'}).replace(',',''),
+    pecas:records.filter(r=>r.data===d).reduce((s,r)=>s+r.qnt,0)
+  }));
+  const maxSem=Math.max(...semDados.map(x=>x.pecas),1);
+  const nColabHoje=[...new Set(recsHoje.map(r=>r.colaborador))].length||1;
+  const metaDiaria=nColabHoje*META;
+  document.getElementById('dash-semana').innerHTML=`
+    <div style="display:flex;align-items:flex-end;gap:8px;height:120px;padding:0 4px;">
+      ${semDados.map(({d,label,pecas})=>{
+        const h=Math.max(4,Math.round((pecas/maxSem)*100));
+        const isT=d===t;
+        const atingiu=pecas>=metaDiaria;
+        const barCor=isT?'linear-gradient(180deg,var(--accent),rgba(0,212,255,.4))':atingiu?'linear-gradient(180deg,var(--success),rgba(0,255,163,.3))':'var(--surface4)';
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%">
+          <div style="font-family:'DM Mono',monospace;font-size:.6rem;color:${isT?'var(--accent)':pecas>0?'var(--text2)':'var(--muted)'};margin-bottom:2px;">${pecas>0?pecas.toLocaleString('pt-BR'):''}</div>
+          <div style="flex:1;width:100%;display:flex;align-items:flex-end;">
+            <div style="width:100%;height:${h}%;background:${barCor};border-radius:4px 4px 0 0;transition:height .5s;min-height:4px;position:relative;">
+              ${atingiu?'<div style="position:absolute;top:-2px;left:50%;transform:translateX(-50%);font-size:8px;">✓</div>':''}</div>
+          </div>
+          <div style="font-size:.6rem;color:${isT?'var(--accent)':'var(--muted)'};text-align:center;white-space:nowrap;">${label}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="display:flex;gap:16px;margin-top:10px;font-size:.65rem;color:var(--muted);">
+      <span><span style="color:var(--accent);">■</span> Hoje</span>
+      <span><span style="color:var(--success);">■</span> Meta atingida</span>
+      <span><span style="color:var(--surface4);">■</span> Abaixo da meta</span>
+    </div>`;
+
+  // ── CALENDÁRIO DO MÊS ──
+  const mesAtual=t.slice(0,7);
+  const nomeMes=new Date(t+'T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  document.getElementById('dash-cal-mes').textContent=nomeMes.charAt(0).toUpperCase()+nomeMes.slice(1);
+  const primeiroDia=new Date(mesAtual+'-01T12:00:00');
+  const ultimoDia=new Date(new Date(mesAtual+'-01T12:00:00').getFullYear(),new Date(mesAtual+'-01T12:00:00').getMonth()+1,0);
+  const dowPrimeiro=(primeiroDia.getDay()+6)%7; // seg=0
+
+  // pegar todos os dias do mês com dados
+  const diasMes={};
+  records.filter(r=>r.data.startsWith(mesAtual)).forEach(r=>{
+    if(!diasMes[r.data])diasMes[r.data]={pecas:0,nColab:new Set()};
+    diasMes[r.data].pecas+=r.qnt;
+    diasMes[r.data].nColab.add(r.colaborador);
+  });
+
+  let calHTML='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">';
+  ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'].forEach(d=>{
+    calHTML+=`<div style="text-align:center;font-size:.6rem;color:var(--muted);font-weight:700;padding:4px 0;text-transform:uppercase;letter-spacing:.06em;">${d}</div>`;
+  });
+  for(let i=0;i<dowPrimeiro;i++) calHTML+='<div></div>';
+  for(let dia=1;dia<=ultimoDia.getDate();dia++){
+    const dStr=`${mesAtual}-${String(dia).padStart(2,'0')}`;
+    const dd=diasMes[dStr];
+    const isFuturo=dStr>t;
+    const isHj=dStr===t;
+    const nC=dd?dd.nColab.size:0;
+    const metaD=nC*META;
+    const atingiu=dd&&metaD>0&&dd.pecas>=metaD;
+    const temDados=!!dd;
+    let bg='transparent',cor='var(--muted2)',brd='transparent';
+    if(isHj){bg='rgba(0,212,255,.12)';cor='var(--accent)';brd='var(--accent)';}
+    else if(atingiu){bg='rgba(0,255,163,.12)';cor='var(--success)';brd='rgba(0,255,163,.3)';}
+    else if(temDados&&!isFuturo){bg='rgba(255,77,106,.08)';cor='var(--danger)';brd='rgba(255,77,106,.2)';}
+    calHTML+=`<div style="text-align:center;padding:6px 2px;border-radius:var(--rs);background:${bg};border:1px solid ${brd};cursor:default;" title="${dd?dd.pecas.toLocaleString('pt-BR')+' peças':''}">
+      <div style="font-family:'DM Mono',monospace;font-size:.78rem;font-weight:${isHj?700:500};color:${cor};">${dia}</div>
+      ${dd?`<div style="font-size:.55rem;color:${atingiu?'var(--success)':'var(--danger)'};margin-top:1px;">${dd.pecas>=1000?(dd.pecas/1000).toFixed(1)+'k':dd.pecas}</div>`:''}
+    </div>`;
+  }
+  calHTML+='</div>';
+  calHTML+=`<div style="display:flex;gap:16px;margin-top:10px;font-size:.65rem;color:var(--muted);">
+    <span><span style="color:var(--success);">■</span> Meta atingida</span>
+    <span><span style="color:var(--danger);">■</span> Abaixo da meta</span>
+    <span><span style="color:var(--accent);">■</span> Hoje</span>
+  </div>`;
+  document.getElementById('dash-calendario').innerHTML=calHTML;
+
+  // ── ÚLTIMOS REGISTROS ──
   const recent=records.slice(0,8);
   const wrap=document.getElementById('dash-recent');
   if(!recent.length){
@@ -1679,6 +2151,8 @@ function renderColaboradores(){
 document.getElementById('f-data').value=hoje();
 document.getElementById('prod-data-ini').value=hoje();
 document.getElementById('prod-data-fim').value=hoje();
+document.getElementById('dash-data-ini').value=hoje();
+document.getElementById('dash-data-fim').value=hoje();
 document.getElementById('topbar-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'})+' '+horaAtual();
 
 if(window.innerWidth<=768){
