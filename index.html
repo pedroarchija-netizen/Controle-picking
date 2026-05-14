@@ -1461,7 +1461,8 @@ function renderDashboard(){
   }
 
   // KPIs
-  const pecas=recs.reduce((s,r)=>s+r.qnt,0);
+  const recsFin=recs.filter(r=>r.finalizado);
+  const pecas=recsFin.reduce((s,r)=>s+r.qnt,0);
   const faltas=recs.reduce((s,r)=>s+nNum(r.falta),0);
   document.getElementById('kpi-hoje').textContent=recs.length;
   document.getElementById('kpi-pecas').textContent=pecas.toLocaleString('pt-BR');
@@ -1489,7 +1490,7 @@ function renderDashboard(){
 
   // ── COLABORADOR DESTAQUE ──
   const mapColab={};
-  recs.forEach(r=>{
+  recsFin.forEach(r=>{
     if(!mapColab[r.colaborador])mapColab[r.colaborador]={pecas:0,ondas:0};
     mapColab[r.colaborador].pecas+=r.qnt;
     mapColab[r.colaborador].ondas++;
@@ -1519,7 +1520,7 @@ function renderDashboard(){
 
   // ── PEÇAS POR TIPO ──
   const mapTipo={'Vendas':0,'Doação':0,'Retorno Pago':0,'Outros':0};
-  recs.forEach(r=>{
+  recsFin.forEach(r=>{
     const k=Object.keys(mapTipo).includes(r.tipo)?r.tipo:'Outros';
     mapTipo[k]+=r.qnt;
   });
@@ -1541,8 +1542,8 @@ function renderDashboard(){
   // ── COMPARATIVO HOJE VS ONTEM ──
   const ontem=new Date();ontem.setDate(ontem.getDate()-1);
   const ontemStr=ontem.toISOString().split('T')[0];
-  const recsHoje=records.filter(r=>r.data===t);
-  const recsOntem=records.filter(r=>r.data===ontemStr);
+  const recsHoje=records.filter(r=>r.data===t&&r.finalizado);
+  const recsOntem=records.filter(r=>r.data===ontemStr&&r.finalizado);
   const pHoje=recsHoje.reduce((s,r)=>s+r.qnt,0);
   const pOntem=recsOntem.reduce((s,r)=>s+r.qnt,0);
   const diff=pHoje-pOntem;
@@ -1573,7 +1574,7 @@ function renderDashboard(){
   for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);dias7.push(d.toISOString().split('T')[0]);}
   const semDados=dias7.map(d=>({
     d, label:new Date(d+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit'}).replace(',',''),
-    pecas:records.filter(r=>r.data===d).reduce((s,r)=>s+r.qnt,0)
+    pecas:records.filter(r=>r.data===d&&r.finalizado).reduce((s,r)=>s+r.qnt,0)
   }));
   const maxSem=Math.max(...semDados.map(x=>x.pecas),1);
   const nColabHoje=[...new Set(recsHoje.map(r=>r.colaborador))].length||1;
