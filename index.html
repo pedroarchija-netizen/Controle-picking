@@ -274,6 +274,9 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
           <span class="ic">✅</span> Conferência
           <span id="sb-conf-badge" style="display:none;margin-left:auto;font-size:.6rem;font-weight:700;font-family:'DM Mono',monospace;background:var(--accent-light);border:1px solid rgba(37,99,235,.3);color:var(--accent);padding:1px 7px;border-radius:99px;"></span>
         </button>
+        <button class="sb-item" onclick="goTo('prod-conf')" id="item-prod-conf">
+          <span class="ic">📊</span> Prod. Conferência
+        </button>
       </div>
     </div>
 
@@ -747,6 +750,42 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
     </div>
   </section>
 
+  <!-- PRODUTIVIDADE CONFERÊNCIA -->
+  <section class="page" id="page-prod-conf">
+    <div class="filter-bar" style="margin-bottom:18px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600;">De</label>
+        <input type="date" id="pc-data-ini" onchange="renderProdConf()" style="width:150px;"/>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <label style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600;">Até</label>
+        <input type="date" id="pc-data-fim" onchange="renderProdConf()" style="width:150px;"/>
+      </div>
+      <button class="filter-btn on" id="pcbtn-hoje" onclick="setProdConfFiltro('hoje')">Hoje</button>
+      <button class="filter-btn" id="pcbtn-semana" onclick="setProdConfFiltro('semana')">Esta semana</button>
+      <button class="filter-btn" id="pcbtn-mes" onclick="setProdConfFiltro('mes')">Este mês</button>
+      <button class="filter-btn" id="pcbtn-periodo" onclick="setProdConfFiltro('periodo')">Período</button>
+      <button class="filter-btn" onclick="setProdConfFiltro('tudo')" style="color:var(--muted);">Tudo</button>
+      <span class="filter-count" id="pc-periodo-label">Hoje</span>
+    </div>
+    <div class="kpi-bar" id="pc-kpi-bar">
+      <div class="kpi" style="border-top:3px solid var(--accent);"><div class="kpi-label">Conferentes Ativos</div><div class="kpi-value" style="color:var(--accent);" id="pckpi-colab">0</div></div>
+      <div class="kpi" style="border-top:3px solid var(--success);"><div class="kpi-label">Peças conferidas</div><div class="kpi-value" style="color:var(--success);" id="pckpi-pecas">0</div></div>
+      <div class="kpi" style="border-top:3px solid var(--warn);"><div class="kpi-label" id="pckpi-meta-label">Meta Diária Total</div><div class="kpi-value" style="color:var(--warn);" id="pckpi-meta-total">0</div></div>
+      <div class="kpi" style="border-top:3px solid var(--purple);"><div class="kpi-label">% Meta Atingida</div><div class="kpi-value" style="color:var(--purple);" id="pckpi-pct">0%</div></div>
+      <div class="kpi" style="border-top:3px solid var(--success);"><div class="kpi-label">Ondas Conferidas</div><div class="kpi-value" style="color:var(--success);" id="pckpi-ondas">0</div></div>
+      <div class="kpi" style="border-top:3px solid var(--danger);"><div class="kpi-label">Aguardando</div><div class="kpi-value" style="color:var(--danger);" id="pckpi-aguard">0</div></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><div class="card-title-accent"></div>Produtividade por conferente</div>
+      </div>
+      <div id="pc-table-wrap">
+        <div class="empty-state"><div class="empty-state-icon">📊</div><p>Nenhum dado disponível.</p></div>
+      </div>
+    </div>
+  </section>
+
   <!-- MODAL CONFERÊNCIA -->
   <div id="modal-conf-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(4px);">
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:28px;width:100%;max-width:480px;box-shadow:var(--shadow-lg);position:relative;">
@@ -1028,7 +1067,7 @@ function goTo(page){
   document.getElementById('page-'+page).classList.add('active');
   const si=document.getElementById('item-'+page);
   if(si)si.classList.add('active');
-  const titles={dashboard:'Dashboard',novo:'Novo Registro',registros:'Registros',produtividade:'Produtividade',colaboradores:'Colaboradores',faltas:'Tratamento de Faltas',conferencia:'Conferência'};
+  const titles={dashboard:'Dashboard',novo:'Novo Registro',registros:'Registros',produtividade:'Produtividade',colaboradores:'Colaboradores',faltas:'Tratamento de Faltas',conferencia:'Conferência','prod-conf':'Prod. Conferência'};
   document.getElementById('topbar-page').textContent=titles[page]||page;
   if(page==='novo'&&!editId){resetForm();}
   if(page==='registros')renderRegistros();
@@ -1037,6 +1076,7 @@ function goTo(page){
   if(page==='colaboradores')renderColaboradores();
   if(page==='faltas'){renderFaltas();}
   if(page==='conferencia'){renderConferencia();}
+  if(page==='prod-conf'){renderProdConf();}
   document.getElementById('sidebar').classList.remove('open');
   const ov=document.getElementById('sb-overlay'); if(ov) ov.classList.remove('open');
 }
@@ -2422,6 +2462,7 @@ setInterval(async()=>{
     if(id==='page-produtividade') renderProdutividade();
     if(id==='page-faltas') renderFaltas();
     if(id==='page-conferencia') renderConferencia();
+    if(id==='page-prod-conf') renderProdConf();
   }
   atualizarBadgeFaltas();
   atualizarBadgeConf();
@@ -2593,6 +2634,192 @@ async function confirmarConferencia(){
   atualizarBadgeConf();
   toast(confFinalizado ? 'Conferência finalizada!' : 'Conferência salva (em andamento).', 'success');
 }
+// ── PRODUTIVIDADE CONFERÊNCIA ──
+const META_CONF_PESSOA = 1200;
+let prodConfFiltro = 'hoje';
+
+function setProdConfFiltro(v){
+  prodConfFiltro = v;
+  const t = hoje();
+  const ini = document.getElementById('pc-data-ini');
+  const fim = document.getElementById('pc-data-fim');
+  if(v==='hoje'){ini.value=t;fim.value=t;}
+  else if(v==='semana'){
+    const d=new Date();const dow=d.getDay()||7;
+    d.setDate(d.getDate()-dow+1);
+    ini.value=d.toISOString().split('T')[0];fim.value=t;
+  }
+  else if(v==='mes'){ini.value=t.slice(0,7)+'-01';fim.value=t;}
+  else if(v==='tudo'){ini.value='';fim.value='';}
+  ['hoje','semana','mes','periodo','tudo'].forEach(s=>{
+    const el=document.getElementById('pcbtn-'+s);
+    if(el)el.classList.toggle('on',s===v);
+  });
+  renderProdConf();
+}
+
+function confRecsNoPeriodo(){
+  const ini=document.getElementById('pc-data-ini').value;
+  const fim=document.getElementById('pc-data-fim').value;
+  return records.filter(r=>{
+    if(!r.confFinalizado) return false;
+    const d = r.confDataIni || r.data;
+    if(ini && d < ini) return false;
+    if(fim && d > fim) return false;
+    return true;
+  });
+}
+
+function renderProdConf(){
+  const t = hoje();
+  const ini = document.getElementById('pc-data-ini').value;
+  const fim = document.getElementById('pc-data-fim').value;
+
+  // Inicializar filtro na primeira vez
+  if(!ini && !fim && prodConfFiltro==='hoje'){
+    document.getElementById('pc-data-ini').value = t;
+    document.getElementById('pc-data-fim').value = t;
+  }
+
+  const periodoConf = confRecsNoPeriodo();
+  const isHoje = document.getElementById('pc-data-ini').value===t && document.getElementById('pc-data-fim').value===t;
+
+  // Label do período
+  const iniVal = document.getElementById('pc-data-ini').value;
+  const fimVal = document.getElementById('pc-data-fim').value;
+  const lbl = document.getElementById('pc-periodo-label');
+  if(!iniVal&&!fimVal) lbl.textContent='Todo o período';
+  else if(iniVal===t&&fimVal===t) lbl.textContent='Hoje — '+t.split('-').reverse().join('/');
+  else if(iniVal===fimVal) lbl.textContent=iniVal.split('-').reverse().join('/');
+  else lbl.textContent=(iniVal?iniVal.split('-').reverse().join('/'):'início')+' → '+(fimVal?fimVal.split('-').reverse().join('/'):'hoje');
+
+  // Dias úteis
+  const diasNoPeriodo=()=>{
+    if(!iniVal||!fimVal)return 1;
+    const d1=new Date(iniVal+'T12:00:00');const d2=new Date(fimVal+'T12:00:00');
+    let dias=0,cur=new Date(d1);
+    while(cur<=d2){const dow=cur.getDay();if(dow>0&&dow<6)dias++;cur.setDate(cur.getDate()+1);}
+    return Math.max(1,dias);
+  };
+  const dias = diasNoPeriodo();
+
+  // Conferentes e peças
+  const confMap = {};
+  periodoConf.forEach(r=>{
+    const c = r.confConferente;
+    if(!confMap[c]) confMap[c] = {total:0, ondas:0};
+    confMap[c].total += r.qnt;
+    confMap[c].ondas++;
+  });
+  const confList = Object.entries(confMap).sort((a,b)=>b[1].total-a[1].total);
+  const nColab = confList.length;
+  const pecasConf = periodoConf.reduce((s,r)=>s+r.qnt,0);
+  const metaTotal = META_CONF_PESSOA * nColab * dias;
+  const pctMeta = metaTotal>0 ? Math.min(100,Math.round((pecasConf/metaTotal)*100)) : 0;
+  const aguardando = records.filter(r=>r.finalizado && !r.confFinalizado).length;
+
+  // KPIs
+  document.getElementById('pckpi-colab').textContent = nColab;
+  document.getElementById('pckpi-pecas').textContent = pecasConf.toLocaleString('pt-BR');
+  document.getElementById('pckpi-meta-total').textContent = metaTotal.toLocaleString('pt-BR');
+  document.getElementById('pckpi-meta-label').textContent = isHoje ? 'Meta Diária Total' : 'Meta do Período';
+  document.getElementById('pckpi-pct').textContent = pctMeta+'%';
+  document.getElementById('pckpi-ondas').textContent = periodoConf.length;
+  document.getElementById('pckpi-aguard').textContent = aguardando;
+
+  // Acompanhamento horário
+  const esperadoAgora = isHoje ? Math.round(META_CONF_PESSOA * minutosTrabalhadosAte(new Date()) / MIN_EFETIVOS) : META_CONF_PESSOA;
+  const hora = horaAtual();
+  const minsTrab = minutosTrabalhadosAte(new Date());
+  const percJornada = isHoje ? Math.min(100,Math.round((minsTrab/MIN_EFETIVOS)*100)) : 100;
+  const metaPorPessoa = META_CONF_PESSOA * dias;
+
+  const wrap = document.getElementById('pc-table-wrap');
+  if(!confList.length){
+    wrap.innerHTML='<div class="empty-state"><div class="empty-state-icon">📊</div><p>Nenhuma conferência no período selecionado.</p></div>';
+    return;
+  }
+
+  wrap.innerHTML=`
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
+      ${isHoje?`
+      <div>
+        <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Hora atual</div>
+        <div style="font-family:'DM Mono',monospace;font-size:1.4rem;font-weight:700;color:var(--accent)">${hora}</div>
+      </div>
+      <div>
+        <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Turno decorrido</div>
+        <div style="font-family:'DM Mono',monospace;font-size:1.4rem;font-weight:700;color:var(--text)">${percJornada}%</div>
+        <div style="font-size:.65rem;color:var(--muted)">${minsTrab} / ${MIN_EFETIVOS} min</div>
+      </div>
+      <div>
+        <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Meta esperada agora</div>
+        <div style="font-family:'DM Mono',monospace;font-size:1.4rem;font-weight:700;color:var(--warn)">${esperadoAgora}</div>
+        <div style="font-size:.65rem;color:var(--muted)">de ${META_CONF_PESSOA.toLocaleString('pt-BR')} p/ conferente</div>
+      </div>`:''}
+      <div>
+        <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Conferentes no período</div>
+        <div style="font-family:'DM Mono',monospace;font-size:1.4rem;font-weight:700;color:var(--accent)">${nColab}</div>
+      </div>
+      <div>
+        <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">${isHoje?'Meta diária total':'Meta do período'}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:1.4rem;font-weight:700;color:var(--warn)">${metaTotal.toLocaleString('pt-BR')}</div>
+        <div style="font-size:.65rem;color:var(--muted)">${isHoje?nColab+' × '+META_CONF_PESSOA.toLocaleString('pt-BR'):dias+' dia'+(dias!==1?'s':'')+' × meta diária'}</div>
+      </div>
+      ${isHoje?`<div style="flex:1;min-width:180px;">
+        <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Progresso do turno</div>
+        <div style="background:var(--surface3);border-radius:99px;height:6px;overflow:hidden;">
+          <div style="height:6px;border-radius:99px;width:${percJornada}%;background:linear-gradient(90deg,var(--accent),var(--success));transition:width .5s"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:.6rem;color:var(--muted2);margin-top:3px;font-family:'DM Mono',monospace"><span>07:00</span><span>11:40</span><span>12:40</span><span>16:48</span></div>
+      </div>`:''}
+    </div>
+
+    <div class="table-wrap"><table>
+      <thead><tr>
+        <th>Conferente</th>
+        <th>Peças conferidas</th>
+        ${isHoje?`<th>Meta agora (${hora})</th><th>Situação</th>`:''}
+        <th>Falta p/ meta</th>
+        <th>% Meta</th>
+        <th style="min-width:140px">Progresso</th>
+        <th>Ondas</th>
+      </tr></thead>
+      <tbody>${confList.map(([col,s])=>{
+        const feito=s.total;
+        const esp=isHoje?esperadoAgora:metaPorPessoa;
+        const diff=feito-esp;
+        const faltaMeta=Math.max(0,metaPorPessoa-feito);
+        const pDia=Math.min(100,Math.round((feito/metaPorPessoa)*100));
+        const colDia=pDia>=100?'var(--success)':pDia>=75?'var(--warn)':'var(--accent)';
+        const colSit=diff>=0?'var(--success)':'var(--danger)';
+        const icoSit=diff>=0?'▲':'▼';
+        const barEsp=isHoje&&esp>0?Math.min(100,Math.round((esp/metaPorPessoa)*100)):percJornada;
+        return\`<tr>
+          <td class="td-name">\${col}</td>
+          <td>
+            <div style="font-weight:700;font-size:.95rem;color:var(--text)">\${feito.toLocaleString('pt-BR')}</div>
+          </td>
+          \${isHoje?\`<td style="font-family:'DM Mono',monospace;color:var(--warn);font-weight:600">\${esp}</td>
+          <td><span style="color:\${colSit};font-family:'DM Mono',monospace;font-size:.78rem;font-weight:700">\${icoSit} \${diff>=0?'+':''}\${diff}</span></td>\`:''}
+          <td style="font-family:'DM Mono',monospace;font-size:.78rem;color:\${faltaMeta===0?'var(--success)':'var(--muted)'}">\${faltaMeta===0?'✔ Meta!':faltaMeta.toLocaleString('pt-BR')}</td>
+          <td style="font-family:'DM Mono',monospace;font-size:.8rem;color:\${colDia};font-weight:700">\${pDia}%</td>
+          <td>
+            <div style="position:relative;background:var(--surface3);border-radius:99px;height:8px;">
+              <div style="position:absolute;left:0;top:0;height:8px;border-radius:99px;width:\${barEsp}%;background:rgba(245,158,11,.15);border-right:1px dashed var(--warn);"></div>
+              <div style="position:absolute;left:0;top:0;height:8px;border-radius:99px;width:\${pDia}%;background:\${colDia};transition:width .5s;"></div>
+            </div>
+            <div style="font-size:.6rem;color:var(--muted2);margin-top:2px;font-family:'DM Mono',monospace">\${feito.toLocaleString('pt-BR')} / \${metaPorPessoa.toLocaleString('pt-BR')}</div>
+          </td>
+          <td class="td-muted">\${s.ondas}</td>
+        </tr>\`;
+      }).join('')}
+      </tbody>
+    </table></div>`;
+}
+
+// ── FIM PROD. CONFERÊNCIA ──
+
 </script>
 </body>
 </html>
