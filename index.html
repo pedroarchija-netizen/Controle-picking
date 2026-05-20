@@ -808,7 +808,8 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
 
 
 <script>
-let META = parseInt(localStorage.getItem('picking_meta')||'0');
+let META = parseInt(localStorage.getItem('picking_meta')||'0'); // meta total diária definida pelo gestor
+const META_PESSOA = 492; // meta individual por colaborador — sempre fixa
 // Jornada 07:00–16:48, almoço 11:40–12:40 → 528 min efetivos
 const MIN_EFETIVOS = 528;
 const JORNADA_INI  = 7*60+0;
@@ -930,7 +931,7 @@ function minutosTrabalhadosAte(agora){
 }
 
 function metaAgora(){
-  return Math.round((minutosTrabalhadosAte(new Date())/MIN_EFETIVOS)*META);
+  return Math.round((minutosTrabalhadosAte(new Date())/MIN_EFETIVOS)*META_PESSOA);
 }
 
 function horaAtual(){
@@ -1704,13 +1705,13 @@ function renderDashboard(){
     pecas:records.filter(r=>r.data===d).reduce((s,r)=>s+r.qnt,0)
   }));
   const maxSem=Math.max(...semDados.map(x=>x.pecas),1);
-  const metaDiaria=META||0;
+  const metaDiaria=META_PESSOA;
   document.getElementById('dash-semana').innerHTML=`
     <div style="display:flex;align-items:flex-end;gap:8px;height:120px;padding:0 4px;">
       ${semDados.map(({d,label,pecas})=>{
         const h=Math.max(4,Math.round((pecas/maxSem)*100));
         const isT=d===t;
-        const atingiu=metaDiaria>0&&pecas>=metaDiaria;
+        const atingiu=pecas>=metaDiaria;
         const barCor=isT?'linear-gradient(180deg,var(--accent),rgba(0,212,255,.4))':atingiu?'linear-gradient(180deg,var(--success),rgba(0,255,163,.3))':'var(--surface4)';
         return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%">
           <div style="font-family:'DM Mono',monospace;font-size:.6rem;color:${isT?'var(--accent)':pecas>0?'var(--text2)':'var(--muted)'};margin-bottom:2px;">${pecas>0?pecas.toLocaleString('pt-BR'):''}</div>
@@ -1754,7 +1755,8 @@ function renderDashboard(){
     const dd=diasMes[dStr];
     const isFuturo=dStr>t;
     const isHj=dStr===t;
-    const metaD=META||0;
+    const nC=dd?dd.nColab.size:0;
+    const metaD=nC*META_PESSOA;
     const atingiu=dd&&metaD>0&&dd.pecas>=metaD;
     const temDados=!!dd;
     let bg='transparent',cor='var(--muted2)',brd='transparent';
@@ -1873,7 +1875,7 @@ function renderProdutividade(){
   document.getElementById('pkpi-aberto').textContent=periodoRecs.filter(r=>!r.finalizado).length;
 
   // Acompanhamento por horário
-  const esperadoAgora=isHoje?metaAgora():META;
+  const esperadoAgora=isHoje?metaAgora():META_PESSOA;
   const hora=horaAtual();
   const minsTrab=minutosTrabalhadosAte(new Date());
   const percJornada=isHoje?Math.min(100,Math.round((minsTrab/MIN_EFETIVOS)*100)):100;
@@ -1899,7 +1901,7 @@ function renderProdutividade(){
   }
 
   // meta por pessoa no período
-  const metaPorPessoa=META>0?META*dias:null;
+  const metaPorPessoa=META_PESSOA*dias;
 
   wrap.innerHTML=`
     <!-- Painel de horário/período -->
@@ -1917,7 +1919,7 @@ function renderProdutividade(){
       <div>
         <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Meta esperada agora</div>
         <div style="font-family:'DM Mono',monospace;font-size:1.4rem;font-weight:700;color:var(--warn)">${esperadoAgora}</div>
-        <div style="font-size:.65rem;color:var(--muted)">peças / pessoa</div>
+        <div style="font-size:.65rem;color:var(--muted)">de ${META_PESSOA} p/ pessoa</div>
       </div>`:''}
       <div>
         <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Pessoas no período</div>
@@ -1952,7 +1954,7 @@ function renderProdutividade(){
         const feito=s.total;
         const esp=isHoje?esperadoAgora:metaPorPessoa;
         const diff=feito-esp;
-        const faltaMeta=metaPorPessoa!=null?Math.max(0,metaPorPessoa-feito):null;
+        const faltaMeta=Math.max(0,metaPorPessoa-feito);
         const pDia=Math.min(100,Math.round((feito/metaPorPessoa)*100));
         const colDia=pDia>=100?'var(--success)':pDia>=75?'var(--warn)':'var(--accent)';
         const colSit=diff>=0?'var(--success)':'var(--danger)';
@@ -1966,14 +1968,14 @@ function renderProdutividade(){
           </td>
           ${isHoje?`<td style="font-family:'DM Mono',monospace;color:var(--warn);font-weight:600">${esp}</td>
           <td><span style="color:${colSit};font-family:'DM Mono',monospace;font-size:.78rem;font-weight:700">${icoSit} ${diff>=0?'+':''}${diff}</span></td>`:''}
-          <td style="font-family:'DM Mono',monospace;font-size:.78rem;color:${faltaMeta===0?'var(--success)':faltaMeta===null?'var(--muted2)':'var(--muted)'}">${faltaMeta===null?'—':faltaMeta===0?'✔ Meta!':faltaMeta.toLocaleString('pt-BR')}</td>
+          <td style="font-family:'DM Mono',monospace;font-size:.78rem;color:${faltaMeta===0?'var(--success)':'var(--muted)'}">${faltaMeta===0?'✔ Meta!':faltaMeta.toLocaleString('pt-BR')}</td>
           <td style="font-family:'DM Mono',monospace;font-size:.8rem;color:${colDia};font-weight:700">${pDia}%</td>
           <td>
             <div style="position:relative;background:var(--surface3);border-radius:99px;height:8px;">
               <div style="position:absolute;left:0;top:0;height:8px;border-radius:99px;width:${barEsp}%;background:rgba(255,184,0,.2);border-right:1px solid var(--warn);"></div>
               <div style="position:absolute;left:0;top:0;height:8px;border-radius:99px;width:${pDia}%;background:${colDia};transition:width .5s;"></div>
             </div>
-            <div style="font-size:.6rem;color:var(--muted2);margin-top:2px;font-family:'DM Mono',monospace">${feito.toLocaleString('pt-BR')}${metaPorPessoa!=null?' / '+metaPorPessoa.toLocaleString('pt-BR'):''}</div>
+            <div style="font-size:.6rem;color:var(--muted2);margin-top:2px;font-family:'DM Mono',monospace">${feito.toLocaleString('pt-BR')} / ${metaPorPessoa.toLocaleString('pt-BR')}</div>
           </td>
           <td class="td-muted">${s.ondas}${s.ondasAberto>0?` <span style="color:var(--muted2);font-size:.7rem;">(+${s.ondasAberto} ab.)</span>`:''}</td>
         </tr>`;
