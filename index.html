@@ -394,8 +394,18 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
 
     <!-- Barra de meta (só hoje) -->
     <div class="progress-wrap" id="dash-meta-wrap">
-      <div class="progress-label">
-        <span>Meta diária — <span style="color:var(--accent)" id="prog-label-val">0</span> / <span id="prog-meta-total">0</span> peças</span>
+      <div class="progress-label" style="margin-bottom:10px;">
+        <span style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span>Meta diária — <span style="color:var(--accent)" id="prog-label-val">0</span> / <span id="prog-meta-total">0</span> peças</span>
+          <span style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;">Meta diária total:</span>
+            <input type="number" id="meta-input" min="1" max="9999"
+              style="width:80px;font-family:'DM Mono',monospace;font-size:.82rem;font-weight:700;color:var(--accent);background:var(--surface3);border:1px solid var(--border2);border-radius:var(--rs);padding:4px 8px;text-align:center;"
+              oninput="salvarMeta()"
+            />
+            <span style="font-size:.7rem;color:var(--muted);">peças</span>
+          </span>
+        </span>
         <span style="color:var(--accent);font-family:'DM Mono',monospace" id="prog-pct">0%</span>
       </div>
       <div class="progress-bg"><div class="progress-fill" id="progress-fill" style="width:0%;background:linear-gradient(90deg,#00D4FF,#00FFA3);"></div></div>
@@ -703,6 +713,12 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
       <button class="filter-btn on" id="faltbtn-pendente" onclick="setFiltroFalta('pendente')">⏳ Pendentes</button>
       <button class="filter-btn" id="faltbtn-validado" onclick="setFiltroFalta('validado')">✔ Validados</button>
       <button class="filter-btn" id="faltbtn-todos" onclick="setFiltroFalta('todos')">Todos</button>
+      <select id="falt-tipo" onchange="renderFaltas()" style="min-width:140px;">
+        <option value="">Todos os tipos</option>
+        <option value="Vendas">Vendas</option>
+        <option value="Doação">Doação</option>
+        <option value="Retorno Pago">Retorno Pago</option>
+      </select>
       <span class="filter-count" id="falt-count">0 registros</span>
     </div>
 
@@ -714,6 +730,7 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
             <th>Data</th>
             <th>Colaborador</th>
             <th>Romaneio</th>
+            <th>Tipo</th>
             <th>Qtd. Peças</th>
             <th>Falta declarada</th>
             <th>Situação</th>
@@ -725,7 +742,7 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
           </tr>
         </thead>
         <tbody id="tbody-faltas">
-          <tr><td colspan="11"><div class="empty-state"><div class="empty-state-icon">⚠️</div><p>Nenhum registro com falta encontrado.</p></div></td></tr>
+          <tr><td colspan="12"><div class="empty-state"><div class="empty-state-icon">⚠️</div><p>Nenhum registro com falta encontrado.</p></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -791,7 +808,7 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
 
 
 <script>
-const META = 492;
+let META = parseInt(localStorage.getItem('picking_meta')||'0');
 // Jornada 07:00–16:48, almoço 11:40–12:40 → 528 min efetivos
 const MIN_EFETIVOS = 528;
 const JORNADA_INI  = 7*60+0;
@@ -1586,15 +1603,14 @@ function renderDashboard(){
   const metaWrap=document.getElementById('dash-meta-wrap');
   if(isHoje){
     metaWrap.style.display='block';
-    const nColab=[...new Set(recs.map(r=>r.colaborador))].length||1;
-    const metaTotal=nColab*META;
-    const pct=Math.min(100,Math.round(pecas/metaTotal*100));
+    const metaTotal=META>0?META:null;
+    const pct=metaTotal?Math.min(100,Math.round(pecas/metaTotal*100)):0;
     document.getElementById('prog-label-val').textContent=pecas.toLocaleString('pt-BR');
-    document.getElementById('prog-meta-total').textContent=metaTotal.toLocaleString('pt-BR');
-    document.getElementById('prog-pct').textContent=pct+'%';
-    document.getElementById('progress-fill').style.width=pct+'%';
+    document.getElementById('prog-meta-total').textContent=metaTotal?metaTotal.toLocaleString('pt-BR'):'—';
+    document.getElementById('prog-pct').textContent=metaTotal?pct+'%':'—';
+    document.getElementById('progress-fill').style.width=metaTotal?pct+'%':'0%';
     document.getElementById('progress-fill').style.background=pct>=100?'linear-gradient(90deg,#00FFA3,#00D4FF)':'linear-gradient(90deg,#00D4FF,#00FFA3)';
-    document.getElementById('meta-badge').textContent=`Meta: ${pecas.toLocaleString('pt-BR')} / ${metaTotal.toLocaleString('pt-BR')} peças`;
+    document.getElementById('meta-badge').textContent=metaTotal?`Meta: ${pecas.toLocaleString('pt-BR')} / ${metaTotal.toLocaleString('pt-BR')} peças`:`Peças: ${pecas.toLocaleString('pt-BR')}`;
   } else {
     metaWrap.style.display='none';
   }
@@ -1688,14 +1704,13 @@ function renderDashboard(){
     pecas:records.filter(r=>r.data===d).reduce((s,r)=>s+r.qnt,0)
   }));
   const maxSem=Math.max(...semDados.map(x=>x.pecas),1);
-  const nColabHoje=[...new Set(recsHoje.map(r=>r.colaborador))].length||1;
-  const metaDiaria=nColabHoje*META;
+  const metaDiaria=META||0;
   document.getElementById('dash-semana').innerHTML=`
     <div style="display:flex;align-items:flex-end;gap:8px;height:120px;padding:0 4px;">
       ${semDados.map(({d,label,pecas})=>{
         const h=Math.max(4,Math.round((pecas/maxSem)*100));
         const isT=d===t;
-        const atingiu=pecas>=metaDiaria;
+        const atingiu=metaDiaria>0&&pecas>=metaDiaria;
         const barCor=isT?'linear-gradient(180deg,var(--accent),rgba(0,212,255,.4))':atingiu?'linear-gradient(180deg,var(--success),rgba(0,255,163,.3))':'var(--surface4)';
         return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%">
           <div style="font-family:'DM Mono',monospace;font-size:.6rem;color:${isT?'var(--accent)':pecas>0?'var(--text2)':'var(--muted)'};margin-bottom:2px;">${pecas>0?pecas.toLocaleString('pt-BR'):''}</div>
@@ -1739,8 +1754,7 @@ function renderDashboard(){
     const dd=diasMes[dStr];
     const isFuturo=dStr>t;
     const isHj=dStr===t;
-    const nC=dd?dd.nColab.size:0;
-    const metaD=nC*META;
+    const metaD=META||0;
     const atingiu=dd&&metaD>0&&dd.pecas>=metaD;
     const temDados=!!dd;
     let bg='transparent',cor='var(--muted2)',brd='transparent';
@@ -1843,7 +1857,7 @@ function renderProdutividade(){
   const pecasPeriodo=periodoFin.reduce((s,r)=>s+r.qnt,0);
   const pecasTotalComAberto=periodoRecs.reduce((s,r)=>s+r.qnt,0);
   const dias=diasNoPeriodo();
-  const metaTotalPeriodo=nColab*META*dias;
+  const metaTotalPeriodo=META>0?META*dias:0;
   const pctMeta=metaTotalPeriodo>0?Math.min(100,Math.round((pecasPeriodo/metaTotalPeriodo)*100)):0;
 
   // isHoje precisa ser declarado antes de ser usado
@@ -1885,7 +1899,7 @@ function renderProdutividade(){
   }
 
   // meta por pessoa no período
-  const metaPorPessoa=META*dias;
+  const metaPorPessoa=META>0?META*dias:null;
 
   wrap.innerHTML=`
     <!-- Painel de horário/período -->
@@ -1912,7 +1926,7 @@ function renderProdutividade(){
       <div>
         <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">${isHoje?'Meta diária total':'Meta do período'}</div>
         <div style="font-family:'DM Mono',monospace;font-size:1.4rem;font-weight:700;color:var(--warn)">${metaTotalPeriodo.toLocaleString('pt-BR')}</div>
-        <div style="font-size:.65rem;color:var(--muted)">${isHoje?nColab+' × '+META+' peças':dias+' dia'+(dias!==1?'s':'')+' × '+nColab+' pessoa'+(nColab!==1?'s':'')}</div>
+        <div style="font-size:.65rem;color:var(--muted)">${isHoje?'Meta total do dia':dias+' dia'+(dias!==1?'s':'')+' × meta diária'}</div>
       </div>
       ${isHoje?`<div style="flex:1;min-width:180px;">
         <div style="font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Progresso do turno</div>
@@ -1938,7 +1952,7 @@ function renderProdutividade(){
         const feito=s.total;
         const esp=isHoje?esperadoAgora:metaPorPessoa;
         const diff=feito-esp;
-        const faltaMeta=Math.max(0,metaPorPessoa-feito);
+        const faltaMeta=metaPorPessoa!=null?Math.max(0,metaPorPessoa-feito):null;
         const pDia=Math.min(100,Math.round((feito/metaPorPessoa)*100));
         const colDia=pDia>=100?'var(--success)':pDia>=75?'var(--warn)':'var(--accent)';
         const colSit=diff>=0?'var(--success)':'var(--danger)';
@@ -1952,14 +1966,14 @@ function renderProdutividade(){
           </td>
           ${isHoje?`<td style="font-family:'DM Mono',monospace;color:var(--warn);font-weight:600">${esp}</td>
           <td><span style="color:${colSit};font-family:'DM Mono',monospace;font-size:.78rem;font-weight:700">${icoSit} ${diff>=0?'+':''}${diff}</span></td>`:''}
-          <td style="font-family:'DM Mono',monospace;font-size:.78rem;color:${faltaMeta===0?'var(--success)':'var(--muted)'}">${faltaMeta===0?'✔ Meta!':faltaMeta.toLocaleString('pt-BR')}</td>
+          <td style="font-family:'DM Mono',monospace;font-size:.78rem;color:${faltaMeta===0?'var(--success)':faltaMeta===null?'var(--muted2)':'var(--muted)'}">${faltaMeta===null?'—':faltaMeta===0?'✔ Meta!':faltaMeta.toLocaleString('pt-BR')}</td>
           <td style="font-family:'DM Mono',monospace;font-size:.8rem;color:${colDia};font-weight:700">${pDia}%</td>
           <td>
             <div style="position:relative;background:var(--surface3);border-radius:99px;height:8px;">
               <div style="position:absolute;left:0;top:0;height:8px;border-radius:99px;width:${barEsp}%;background:rgba(255,184,0,.2);border-right:1px solid var(--warn);"></div>
               <div style="position:absolute;left:0;top:0;height:8px;border-radius:99px;width:${pDia}%;background:${colDia};transition:width .5s;"></div>
             </div>
-            <div style="font-size:.6rem;color:var(--muted2);margin-top:2px;font-family:'DM Mono',monospace">${feito.toLocaleString('pt-BR')} / ${metaPorPessoa.toLocaleString('pt-BR')}</div>
+            <div style="font-size:.6rem;color:var(--muted2);margin-top:2px;font-family:'DM Mono',monospace">${feito.toLocaleString('pt-BR')}${metaPorPessoa!=null?' / '+metaPorPessoa.toLocaleString('pt-BR'):''}</div>
           </td>
           <td class="td-muted">${s.ondas}${s.ondasAberto>0?` <span style="color:var(--muted2);font-size:.7rem;">(+${s.ondasAberto} ab.)</span>`:''}</td>
         </tr>`;
@@ -1995,15 +2009,16 @@ function filtradosFaltas(){
   const busca=(document.getElementById('falt-busca').value||'').toLowerCase();
   const ini=document.getElementById('falt-data-ini').value;
   const fim=document.getElementById('falt-data-fim').value;
+  const tipoFilt=(document.getElementById('falt-tipo')?.value||'');
   return records.filter(r=>{
     if(!r.falta||nNum(r.falta)===0) return false;
     if(r.statusFalta==='sem_falta') return false;
-    // registros com falta > 0 e sem status definido tratados como pendente
     const sf = r.statusFalta||'pendente';
     if(filtroFalta==='pendente' && sf!=='pendente') return false;
     if(filtroFalta==='validado' && sf!=='validado') return false;
     if(ini && r.data<ini) return false;
     if(fim && r.data>fim) return false;
+    if(tipoFilt && r.tipo!==tipoFilt) return false;
     if(busca && !r.colaborador?.toLowerCase().includes(busca) && !r.romaneio?.toLowerCase().includes(busca)) return false;
     return true;
   });
@@ -2028,7 +2043,7 @@ function renderFaltas(){
   const tbody = document.getElementById('tbody-faltas');
   if(!lista.length){
     const msg = filtroFalta==='pendente' ? 'Nenhuma falta pendente de validação.' : 'Nenhum registro encontrado.';
-    tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state"><div class="empty-state-icon">✔</div><p>${msg}</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state"><div class="empty-state-icon">✔</div><p>${msg}</p></div></td></tr>`;
     return;
   }
 
@@ -2282,8 +2297,21 @@ function renderColaboradores(){
     </tr>`).join('');
 }
 
+function salvarMeta(){
+  const v = parseInt(document.getElementById('meta-input').value);
+  if(!v || v < 1) return;
+  META = v;
+  localStorage.setItem('picking_meta', v);
+  renderDashboard();
+  renderProdutividade();
+  toast('Meta diária definida: '+v.toLocaleString('pt-BR')+' peças','success');
+}
+
 // Init
 document.getElementById('f-data-ini').value=hoje();
+// Popular campo de meta
+const metaInput = document.getElementById('meta-input');
+if(metaInput) metaInput.value = META;
 document.getElementById('prod-data-ini').value=hoje();
 document.getElementById('prod-data-fim').value=hoje();
 document.getElementById('dash-data-ini').value=hoje();
