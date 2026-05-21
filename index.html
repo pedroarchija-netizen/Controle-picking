@@ -539,13 +539,13 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
       <table>
         <thead>
           <tr>
-            <th>Data</th><th>Colaborador</th><th>Romaneio</th>
+            <th>Data</th><th>Colaborador</th><th>Romaneio</th><th>Dt. Pedido</th>
             <th>Peças</th><th>Tipo</th><th>Início</th><th>Fim</th><th>Duração</th><th>Falta</th><th>F.Real</th>
             <th>Status</th><th>Obs.</th><th>Ações</th>
           </tr>
         </thead>
         <tbody id="tbody-registros">
-          <tr><td colspan="13"><div class="empty-state"><div class="empty-state-icon">📦</div><p>Nenhum registro ainda. Clique em "Novo Registro" para começar.</p></div></td></tr>
+          <tr><td colspan="14"><div class="empty-state"><div class="empty-state-icon">📦</div><p>Nenhum registro ainda. Clique em "Novo Registro" para começar.</p></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -688,6 +688,7 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
             <th>Data</th>
             <th>Colaborador</th>
             <th>Romaneio</th>
+            <th>Dt. Pedido</th>
             <th>Tipo</th>
             <th>Qtd. Peças</th>
             <th>Falta declarada</th>
@@ -700,7 +701,7 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
           </tr>
         </thead>
         <tbody id="tbody-faltas">
-          <tr><td colspan="12"><div class="empty-state"><div class="empty-state-icon">⚠️</div><p>Nenhum registro com falta encontrado.</p></div></td></tr>
+          <tr><td colspan="13"><div class="empty-state"><div class="empty-state-icon">⚠️</div><p>Nenhum registro com falta encontrado.</p></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -736,6 +737,7 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
             <th>Data Picking</th>
             <th>Colaborador Picking</th>
             <th>Romaneio</th>
+            <th>Dt. Pedido</th>
             <th>Tipo</th>
             <th>Peças</th>
             <th>Falta</th>
@@ -748,7 +750,7 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
           </tr>
         </thead>
         <tbody id="tbody-conferencia">
-          <tr><td colspan="12"><div class="empty-state"><div class="empty-state-icon">✅</div><p>Nenhuma onda finalizada encontrada.</p></div></td></tr>
+          <tr><td colspan="13"><div class="empty-state"><div class="empty-state-icon">✅</div><p>Nenhuma onda finalizada encontrada.</p></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -1627,7 +1629,7 @@ function renderRegistros(){
   document.getElementById('filter-count').textContent=`${data.length} registro${data.length!==1?'s':''}`;
   const tbody=document.getElementById('tbody-registros');
   if(!data.length){
-    tbody.innerHTML=`<tr><td colspan="13"><div class="empty-state"><div class="empty-state-icon">📦</div><p>Nenhum resultado com esses filtros.</p></div></td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="14"><div class="empty-state"><div class="empty-state-icon">📦</div><p>Nenhum resultado com esses filtros.</p></div></td></tr>`;
     return;
   }
   tbody.innerHTML=data.map(r=>`
@@ -1635,6 +1637,7 @@ function renderRegistros(){
       <td class="td-muted">${fmtData(r.data)}</td>
       <td class="td-name">${r.colaborador}</td>
       <td class="td-mono">${r.romaneio||'—'}</td>
+      <td class="td-muted">${r.dataPedido?fmtData(r.dataPedido):'—'}</td>
       <td style="font-weight:600;color:var(--text)">${r.qnt.toLocaleString('pt-BR')}</td>
       <td class="td-muted">${r.tipo||'—'}</td>
       <td style="font-family:'DM Mono',monospace;font-size:.78rem;color:var(--text2)">${r.horaIni||'—'}</td>
@@ -2158,7 +2161,7 @@ function renderFaltas(){
   const tbody = document.getElementById('tbody-faltas');
   if(!lista.length){
     const msg = filtroFalta==='pendente' ? 'Nenhuma falta pendente de validação.' : 'Nenhum registro encontrado.';
-    tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state"><div class="empty-state-icon">✔</div><p>${msg}</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="13"><div class="empty-state"><div class="empty-state-icon">✔</div><p>${msg}</p></div></td></tr>`;
     return;
   }
 
@@ -2171,6 +2174,7 @@ function renderFaltas(){
       <td class="td-muted">${fmtData(r.data)}</td>
       <td class="td-name">${r.colaborador}</td>
       <td class="td-mono">${r.romaneio||'—'}</td>
+      <td class="td-muted">${r.dataPedido?fmtData(r.dataPedido):'—'}</td>
       <td style="color:var(--text)">${nNum(r.qnt).toLocaleString('pt-BR')}</td>
       <td style="font-weight:700;color:var(--danger);font-size:.95rem">${nNum(r.falta)}</td>
       <td>
@@ -2528,7 +2532,7 @@ function renderConferencia(){
 
   const tbody = document.getElementById('tbody-conferencia');
   if(!lista.length){
-    tbody.innerHTML = '<tr><td colspan="12"><div class="empty-state"><div class="empty-state-icon">✅</div><p>Nenhuma onda encontrada com os filtros atuais.</p></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="13"><div class="empty-state"><div class="empty-state-icon">✅</div><p>Nenhuma onda encontrada com os filtros atuais.</p></div></td></tr>';
     return;
   }
 
@@ -2549,6 +2553,7 @@ function renderConferencia(){
       <td>${fmtData(r.data)}</td>
       <td>${r.colaborador}</td>
       <td style="font-family:'DM Mono',monospace;color:var(--accent);">${r.romaneio}</td>
+      <td class="td-muted">${r.dataPedido?fmtData(r.dataPedido):'—'}</td>
       <td>${r.tipo}</td>
       <td>${r.qnt}</td>
       <td>${r.falta||0}</td>
