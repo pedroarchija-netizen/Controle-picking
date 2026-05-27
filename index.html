@@ -534,6 +534,8 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
       <button class="filter-btn" id="fbtn-finalizado" onclick="setFiltroStatus('finalizado')">Finalizado</button>
       <button class="filter-btn" onclick="limparFiltros()" style="color:var(--danger);border-color:rgba(255,77,106,.3);">✕ Limpar</button>
       <span class="filter-count" id="filter-count">0 registros</span>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('csv-import-input').click()" style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-size:.72rem;">⬆ Importar CSV</button>
+      <input type="file" id="csv-import-input" accept=".csv" style="display:none;" onchange="importarCSV(this)"/>
     </div>
     <div class="table-wrap">
       <table>
@@ -660,7 +662,7 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
       <div class="kpi g"><div class="kpi-label">Validadas</div><div class="kpi-value" id="fkpi-validadas">0</div></div>
       <div class="kpi w"><div class="kpi-label">Total faltas declaradas</div><div class="kpi-value" id="fkpi-total-decl">0</div></div>
       <div class="kpi d"><div class="kpi-label">Total faltas reais</div><div class="kpi-value" id="fkpi-total-real">0</div></div>
-      <div class="kpi a"><div class="kpi-label">Desatenções</div><div class="kpi-value" id="fkpi-desatencao">0</div></div>
+      <div class="kpi a"><div class="kpi-label">Resolvidas</div><div class="kpi-value" id="fkpi-resolvidas">0</div></div>
     </div>
 
     <!-- Filtros -->
@@ -678,6 +680,7 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
         <option value="Retorno Pago">Retorno Pago</option>
       </select>
       <span class="filter-count" id="falt-count">0 registros</span>
+      <button class="btn btn-outline btn-sm" onclick="exportarFaltasCSV()" style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-size:.72rem;">⬇ Baixar CSV</button>
     </div>
 
     <!-- Tabela -->
@@ -883,8 +886,10 @@ tbody td{padding:10px 14px;color:var(--text2);vertical-align:middle;}
           <label>Resultado</label>
           <select id="mf-resultado">
             <option value="falta_real">✔ Falta real confirmada</option>
-            <option value="desatencao">⚠ Desatenção do colaborador</option>
             <option value="parcial">◑ Parcialmente real</option>
+            <option value="nao_localizado">🔍 Produto não localizado no endereço</option>
+            <option value="duplicidade">📋 Duplicidade de endereço</option>
+            <option value="no_local">📍 Produto no local indicado</option>
           </select>
         </div>
         <div class="form-group">
@@ -1618,6 +1623,74 @@ function filtrados(){
   });
 }
 
+async function importarCSV(input){
+  const file = input.files[0]; if(!file) return;
+  input.value='';
+  const text = await file.text();
+  const sep = text.indexOf(';')>-1 ? ';' : ',';
+  const lines = text.split(/\r?\n/).filter(l=>l.trim());
+  if(lines.length<2){ toast('CSV vazio ou sem dados.','warn'); return; }
+  const headerRaw = lines[0].split(sep).map(h=>h.trim().toLowerCase().replace(/[\uFEFF"]/g,''));
+  // Mapa de nomes possíveis → campo do payload
+  const colMap = {
+    'data':'data','data_picking':'data','data picking':'data',
+    'colaborador':'colaborador','nome':'colaborador',
+    'romaneio':'romaneio','rom':'romaneio',
+    'dt. pedido':'data_pedido','data_pedido':'data_pedido','dt pedido':'data_pedido','data pedido':'data_pedido',
+    'qnt':'qnt','peças':'qnt','pecas':'qnt','qtd':'qnt','quantidade':'qnt','qtd. peças':'qnt',
+    'tipo':'tipo',
+    'falta':'falta','falta declarada':'falta',
+    'obs':'obs','obs.':'obs','observação':'obs','observacao':'obs'
+  };
+  const cols = headerRaw.map(h=>colMap[h]||null);
+  if(!cols.includes('data')||!cols.includes('colaborador')){
+    toast('CSV precisa ter ao menos colunas "Data" e "Colaborador".','warn'); return;
+  }
+  const payloads=[];
+  for(let i=1;i<lines.length;i++){
+    const vals = lines[i].split(sep).map(v=>v.trim().replace(/^"|"$/g,''));
+    const row={};
+    cols.forEach((c,j)=>{ if(c) row[c]=vals[j]||''; });
+    // normalizar data DD/MM/YYYY → YYYY-MM-DD
+    if(row.data && row.data.includes('/')){
+      const p=row.data.split('/');
+      if(p.length===3) row.data=`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+    }
+    if(row.data_pedido && row.data_pedido.includes('/')){
+      const p=row.data_pedido.split('/');
+      if(p.length===3) row.data_pedido=`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+    }
+    if(!row.data||!row.colaborador) continue;
+    const faltaVal = nNum(row.falta||0);
+    payloads.push({
+      data: row.data,
+      colaborador: row.colaborador,
+      romaneio: row.romaneio||'',
+      data_pedido: row.data_pedido||null,
+      qnt: nNum(row.qnt||0),
+      tipo: row.tipo||'Vendas',
+      falta: faltaVal,
+      obs: row.obs||'',
+      finalizado: true,
+      status_falta: faltaVal>0?'pendente':'sem_falta',
+      itens_falta: [],
+      enderecos_concatenados: ''
+    });
+  }
+  if(!payloads.length){ toast('Nenhum registro válido no CSV.','warn'); return; }
+  if(!confirm(`Importar ${payloads.length} registro(s)?`)) return;
+  mostrarLoading(true);
+  let ok=0, fail=0;
+  for(const p of payloads){
+    const r = await supa('picking','POST',p);
+    if(r) ok++; else fail++;
+  }
+  mostrarLoading(false);
+  toast(`Importados: ${ok} | Erros: ${fail}`,'success');
+  await carregarDados();
+  goTo('registros');
+}
+
 function renderRegistros(){
   // atualizar select colaboradores
   const sel=document.getElementById('filt-colab');
@@ -2142,20 +2215,38 @@ function filtradosFaltas(){
   });
 }
 
+function exportarFaltasCSV(){
+  const lista = filtradosFaltas();
+  if(!lista.length){ toast('Nenhum registro para exportar.','warn'); return; }
+  const sep = ';';
+  const headers = ['Data','Colaborador','Romaneio','Dt. Pedido','Tipo','Peças','Falta Declarada','Situação','Falta Real','Resultado','Obs. Validação','Validado por'];
+  const resLabel = {falta_real:'Falta real',parcial:'Parcial',nao_localizado:'Não localizado',duplicidade:'Duplicidade endereço',no_local:'Produto no local',desatencao:'Desatenção'};
+  const rows = lista.map(r=>[
+    r.data||'', r.colaborador||'', r.romaneio||'', r.dataPedido||'', r.tipo||'',
+    nNum(r.qnt), nNum(r.falta), r.statusFalta||'pendente', nNum(r.faltaReal),
+    resLabel[r.faltaResultado]||'', (r.faltaObsVal||'').replace(/;/g,','), r.faltaValidador||''
+  ]);
+  const csv = '\uFEFF' + [headers.join(sep), ...rows.map(r=>r.join(sep))].join('\n');
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='faltas_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click(); URL.revokeObjectURL(url);
+  toast('CSV exportado!','success');
+}
+
 function renderFaltas(){
   const lista = filtradosFaltas();
-  const todos = records.filter(r=>r.falta && nNum(r.falta)>0 && r.statusFalta!=='sem_falta');
-  const pendentes = todos.filter(r=>(r.statusFalta||'pendente')==='pendente');
-  const validados = todos.filter(r=>r.statusFalta==='validado');
-  const totalDecl = todos.reduce((s,r)=>s+nNum(r.falta),0);
-  const totalReal = validados.reduce((s,r)=>s+nNum(r.faltaReal),0);
-  const desatencoes = validados.filter(r=>r.faltaResultado==='desatencao').length;
+  const pendentesLista = lista.filter(r=>(r.statusFalta||'pendente')==='pendente');
+  const validadosLista = lista.filter(r=>r.statusFalta==='validado');
+  const totalDecl = lista.reduce((s,r)=>s+nNum(r.falta),0);
+  const totalReal = validadosLista.reduce((s,r)=>s+nNum(r.faltaReal),0);
+  const resolvidas = validadosLista.filter(r=>['no_local','duplicidade'].includes(r.faltaResultado)).length;
 
-  document.getElementById('fkpi-pendentes').textContent = pendentes.length;
-  document.getElementById('fkpi-validadas').textContent = validados.length;
+  document.getElementById('fkpi-pendentes').textContent = pendentesLista.length;
+  document.getElementById('fkpi-validadas').textContent = validadosLista.length;
   document.getElementById('fkpi-total-decl').textContent = totalDecl;
   document.getElementById('fkpi-total-real').textContent = totalReal;
-  document.getElementById('fkpi-desatencao').textContent = desatencoes;
+  document.getElementById('fkpi-resolvidas').textContent = resolvidas;
   document.getElementById('falt-count').textContent = `${lista.length} registro${lista.length!==1?'s':''}`;
 
   const tbody = document.getElementById('tbody-faltas');
@@ -2165,8 +2256,8 @@ function renderFaltas(){
     return;
   }
 
-  const resLabel = {falta_real:'Falta real',desatencao:'Desatenção',parcial:'Parcialmente real'};
-  const resCor = {falta_real:'var(--danger)',desatencao:'var(--warn)',parcial:'var(--accent)'};
+  const resLabel = {falta_real:'Falta real',parcial:'Parcial',nao_localizado:'Não localizado',duplicidade:'Duplicidade endereço',no_local:'Produto no local',desatencao:'Desatenção'};
+  const resCor = {falta_real:'var(--danger)',parcial:'var(--accent)',nao_localizado:'var(--warn)',duplicidade:'var(--warn)',no_local:'var(--success)',desatencao:'var(--warn)'};
 
   tbody.innerHTML = lista.map(r=>{
     const isPendente = r.statusFalta==='pendente';
