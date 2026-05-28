@@ -538,8 +538,7 @@ tbody td{padding:7px 5px;color:var(--text2);vertical-align:middle;white-space:no
       <button class="filter-btn" id="fbtn-finalizado" onclick="setFiltroStatus('finalizado')">Finalizado</button>
       <button class="filter-btn" onclick="limparFiltros()" style="color:var(--danger);border-color:rgba(255,77,106,.3);">✕ Limpar</button>
       <span class="filter-count" id="filter-count">0 registros</span>
-      <button class="btn btn-outline btn-sm" onclick="document.getElementById('csv-import-input').click()" style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-size:.72rem;">⬆ Importar CSV</button>
-      <input type="file" id="csv-import-input" accept=".csv" style="display:none;" onchange="importarCSV(this)"/>
+      <button class="btn btn-outline btn-sm" onclick="exportarRegistrosCSV()" style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-size:.72rem;">⬇ Baixar CSV</button>
     </div>
     <div class="table-wrap">
       <table class="table-sticky-action">
@@ -1625,72 +1624,25 @@ function filtrados(){
   });
 }
 
-async function importarCSV(input){
-  const file = input.files[0]; if(!file) return;
-  input.value='';
-  const text = await file.text();
-  const sep = text.indexOf(';')>-1 ? ';' : ',';
-  const lines = text.split(/\r?\n/).filter(l=>l.trim());
-  if(lines.length<2){ toast('CSV vazio ou sem dados.','warn'); return; }
-  const headerRaw = lines[0].split(sep).map(h=>h.trim().toLowerCase().replace(/[\uFEFF"]/g,''));
-  // Mapa de nomes possíveis → campo do payload
-  const colMap = {
-    'data':'data','data_picking':'data','data picking':'data',
-    'colaborador':'colaborador','nome':'colaborador',
-    'romaneio':'romaneio','rom':'romaneio',
-    'dt. pedido':'data_pedido','data_pedido':'data_pedido','dt pedido':'data_pedido','data pedido':'data_pedido',
-    'qnt':'qnt','peças':'qnt','pecas':'qnt','qtd':'qnt','quantidade':'qnt','qtd. peças':'qnt',
-    'tipo':'tipo',
-    'falta':'falta','falta declarada':'falta',
-    'obs':'obs','obs.':'obs','observação':'obs','observacao':'obs'
-  };
-  const cols = headerRaw.map(h=>colMap[h]||null);
-  if(!cols.includes('data')||!cols.includes('colaborador')){
-    toast('CSV precisa ter ao menos colunas "Data" e "Colaborador".','warn'); return;
-  }
-  const payloads=[];
-  for(let i=1;i<lines.length;i++){
-    const vals = lines[i].split(sep).map(v=>v.trim().replace(/^"|"$/g,''));
-    const row={};
-    cols.forEach((c,j)=>{ if(c) row[c]=vals[j]||''; });
-    // normalizar data DD/MM/YYYY → YYYY-MM-DD
-    if(row.data && row.data.includes('/')){
-      const p=row.data.split('/');
-      if(p.length===3) row.data=`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
-    }
-    if(row.data_pedido && row.data_pedido.includes('/')){
-      const p=row.data_pedido.split('/');
-      if(p.length===3) row.data_pedido=`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
-    }
-    if(!row.data||!row.colaborador) continue;
-    const faltaVal = nNum(row.falta||0);
-    payloads.push({
-      data: row.data,
-      colaborador: row.colaborador,
-      romaneio: row.romaneio||'',
-      data_pedido: row.data_pedido||null,
-      qnt: nNum(row.qnt||0),
-      tipo: row.tipo||'Vendas',
-      falta: faltaVal,
-      obs: row.obs||'',
-      finalizado: true,
-      status_falta: faltaVal>0?'pendente':'sem_falta',
-      itens_falta: [],
-      enderecos_concatenados: ''
-    });
-  }
-  if(!payloads.length){ toast('Nenhum registro válido no CSV.','warn'); return; }
-  if(!confirm(`Importar ${payloads.length} registro(s)?`)) return;
-  mostrarLoading(true);
-  let ok=0, fail=0;
-  for(const p of payloads){
-    const r = await supa('picking','POST',p);
-    if(r) ok++; else fail++;
-  }
-  mostrarLoading(false);
-  toast(`Importados: ${ok} | Erros: ${fail}`,'success');
-  await carregarDados();
-  goTo('registros');
+function exportarRegistrosCSV(){
+  const lista = filtrados();
+  if(!lista.length){ toast('Nenhum registro para exportar.','warn'); return; }
+  const sep = ';';
+  const headers = ['Data','Colaborador','Romaneio','Dt. Pedido','Peças','Tipo','Início','Fim','Duração','Falta','F.Real','Status','Obs'];
+  const rows = lista.map(r=>[
+    r.data||'', r.colaborador||'', r.romaneio||'', r.dataPedido||'',
+    nNum(r.qnt), r.tipo||'', r.horaIni||'', r.horaFim||'',
+    r.duracaoMin!=null?r.duracaoMin+'min':'',
+    nNum(r.falta), nNum(r.faltaReal),
+    r.finalizado?'Concluído':'Aberto',
+    (r.obs||'').replace(/;/g,',')
+  ]);
+  const csv = '\uFEFF' + [headers.join(sep), ...rows.map(r=>r.join(sep))].join('\n');
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='registros_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click(); URL.revokeObjectURL(url);
+  toast('CSV exportado!','success');
 }
 
 function renderRegistros(){
