@@ -142,20 +142,20 @@ body{
 
 /* ── TABELA ── */
 .table-wrap{overflow-x:auto;border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--shadow);}
-table{width:100%;border-collapse:collapse;font-size:.8rem;}
+table{width:100%;border-collapse:collapse;font-size:.74rem;}
 thead tr{background:var(--surface2);border-bottom:1.5px solid var(--border);}
-thead th{padding:10px 10px;text-align:left;font-size:.62rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;}
+thead th{padding:7px 5px;text-align:left;font-size:.58rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;}
 tbody tr{border-bottom:1px solid var(--border);transition:background .15s;}
 tbody tr:last-child{border-bottom:none;}
 tbody tr:hover{background:var(--surface2);}
-tbody td{padding:10px 10px;color:var(--text2);vertical-align:middle;}
+tbody td{padding:7px 5px;color:var(--text2);vertical-align:middle;white-space:nowrap;}
 .table-sticky-action thead th:last-child,
-.table-sticky-action tbody td:last-child{position:sticky;right:0;background:inherit;box-shadow:-2px 0 6px rgba(0,0,0,.06);z-index:2;min-width:80px;}
+.table-sticky-action tbody td:last-child{position:sticky;right:0;background:inherit;box-shadow:-2px 0 6px rgba(0,0,0,.06);z-index:2;min-width:70px;}
 .table-sticky-action thead th:last-child{background:var(--surface2);}
 .table-sticky-action tbody tr:hover td:last-child{background:var(--surface2);}
-.td-mono{font-family:'DM Mono',monospace;font-size:.78rem;color:var(--accent);}
-.td-name{font-weight:600;color:var(--text);}
-.td-muted{color:var(--muted);font-size:.78rem;}
+.td-mono{font-family:'DM Mono',monospace;font-size:.72rem;color:var(--accent);}
+.td-name{font-weight:600;color:var(--text);max-width:130px;overflow:hidden;text-overflow:ellipsis;}
+.td-muted{color:var(--muted);font-size:.72rem;}
 
 /* ── BADGES ── */
 .badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:var(--r-full);font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
@@ -221,9 +221,9 @@ tbody td{padding:10px 10px;color:var(--text2);vertical-align:middle;}
   .btn{padding:11px 18px;}
   .btn-sm{padding:8px 14px;}
   .filter-bar{gap:6px;}
-  table{font-size:.72rem;}
-  thead th{padding:8px 8px;font-size:.55rem;}
-  tbody td{padding:8px 8px;}
+  table{font-size:.66rem;}
+  thead th{padding:6px 4px;font-size:.5rem;}
+  tbody td{padding:6px 4px;}
   .actions{flex-direction:column;gap:8px;}
   .actions .btn{width:100%;justify-content:center;}
   .toast-container{bottom:12px;right:12px;left:12px;}
@@ -1715,17 +1715,17 @@ function renderRegistros(){
       <td class="td-muted">${r.dataPedido?fmtData(r.dataPedido):'—'}</td>
       <td style="font-weight:600;color:var(--text)">${r.qnt.toLocaleString('pt-BR')}</td>
       <td class="td-muted">${r.tipo||'—'}</td>
-      <td style="font-family:'DM Mono',monospace;font-size:.78rem;color:var(--text2)">${r.horaIni||'—'}</td>
-      <td style="font-family:'DM Mono',monospace;font-size:.78rem;color:var(--text2)">${r.horaFim||'—'}</td>
-      <td style="font-family:'DM Mono',monospace;font-size:.75rem;color:${r.duracaoMin!=null?(r.duracaoMin<=30?'var(--success)':r.duracaoMin<=60?'var(--warn)':'var(--accent)'):'var(--muted)'}">${r.duracaoMin!=null?minParaHora(r.duracaoMin):'—'}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:.7rem;color:var(--text2)">${r.horaIni||'—'}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:.7rem;color:var(--text2)">${r.horaFim||'—'}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:.68rem;color:${r.duracaoMin!=null?(r.duracaoMin<=30?'var(--success)':r.duracaoMin<=60?'var(--warn)':'var(--accent)'):'var(--muted)'}">${r.duracaoMin!=null?minParaHora(r.duracaoMin):'—'}</td>
       <td style="color:${nNum(r.falta)>0?'var(--danger)':'var(--muted)'}">${r.falta||'—'}</td>
       <td style="color:${nNum(r.faltaReal)>0?'var(--danger)':'var(--muted)'}">${r.faltaReal||'—'}</td>
-      <td><span class="status-toggle ${r.finalizado?'done':'open'}">${r.finalizado?'✔ Concluído':'● Aberto'}</span></td>
-      <td class="td-muted" title="${r.obs||''}" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.obs||'—'}</td>
+      <td><span class="status-toggle ${r.finalizado?'done':'open'}" style="font-size:.65rem;padding:2px 8px;">${r.finalizado?'✔ Concluído':'● Aberto'}</span></td>
+      <td class="td-muted" title="${r.obs||''}" style="max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.obs||'—'}</td>
       <td>
-        <div style="display:flex;gap:6px">
-          <button class="btn btn-outline btn-sm" onclick="editarRegistro(${r.id})">Editar</button>
-          <button class="btn btn-sm" style="background:var(--dl);border:1px solid rgba(255,77,106,.3);color:var(--danger);border-radius:var(--r-full);cursor:pointer;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:.74rem;" onclick="excluirRegistro(${r.id})">Excluir</button>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-outline btn-sm" style="font-size:.68rem;padding:3px 8px;" onclick="editarRegistro(${r.id})">Editar</button>
+          <button class="btn btn-sm" style="background:var(--dl);border:1px solid rgba(255,77,106,.3);color:var(--danger);border-radius:var(--r-full);cursor:pointer;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:.68rem;padding:3px 8px;" onclick="excluirRegistro(${r.id})">Excluir</button>
         </div>
       </td>
     </tr>
@@ -2631,16 +2631,16 @@ function renderConferencia(){
 
   tbody.innerHTML = lista.map(r=>{
     const statusConf = r.confFinalizado
-      ? '<span style="display:inline-block;padding:2px 10px;border-radius:99px;font-size:.7rem;font-weight:600;background:var(--success-light);border:1px solid rgba(14,168,113,.3);color:var(--success);">Conferida</span>'
-      : '<span style="display:inline-block;padding:2px 10px;border-radius:99px;font-size:.7rem;font-weight:600;background:var(--accent-light);border:1px solid rgba(37,99,235,.3);color:var(--accent);">Aguardando</span>';
+      ? '<span style="display:inline-block;padding:2px 8px;border-radius:99px;font-size:.64rem;font-weight:600;background:var(--success-light);border:1px solid rgba(14,168,113,.3);color:var(--success);">Conferida</span>'
+      : '<span style="display:inline-block;padding:2px 8px;border-radius:99px;font-size:.64rem;font-weight:600;background:var(--accent-light);border:1px solid rgba(37,99,235,.3);color:var(--accent);">Aguardando</span>';
 
     const confIni = r.confHoraIni ? (r.confHoraIni||'').substring(0,5) : '—';
     const confFim = r.confHoraFim ? (r.confHoraFim||'').substring(0,5) : '—';
     const confDur = r.confDuracaoMin !== null && r.confDuracaoMin !== undefined ? r.confDuracaoMin + 'min' : '—';
 
     const acao = r.confFinalizado
-      ? `<button class="btn btn-outline" style="font-size:.7rem;padding:4px 10px;" onclick="abrirModalConf(${r.id})">✏️ Editar</button>`
-      : `<button class="btn btn-success" style="font-size:.7rem;padding:4px 10px;" onclick="abrirModalConf(${r.id})">✅ Conferir</button>`;
+      ? `<button class="btn btn-outline" style="font-size:.64rem;padding:3px 8px;" onclick="abrirModalConf(${r.id})">✏️ Editar</button>`
+      : `<button class="btn btn-success" style="font-size:.64rem;padding:3px 8px;" onclick="abrirModalConf(${r.id})">✅ Conferir</button>`;
 
     return `<tr>
       <td>${fmtData(r.data)}</td>
