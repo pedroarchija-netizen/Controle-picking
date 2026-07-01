@@ -925,35 +925,125 @@ const JORNADA_FIM  = 16*60+48;
 const ALM_INI      = 11*60+40;
 const ALM_FIM      = 12*60+40;
 
-// ── SUPABASE CONFIG ──
-const SUPA_URL = 'https://fekxueeafxhttntvgwwu.supabase.co';
-const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZla3h1ZWVhZnhodHRudHZnd3d1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MTM2MzQsImV4cCI6MjA5NDE4OTYzNH0.TJ8_m79Ly1jMKRgZWMnmHvPxyoO6FdtnipwwOw9UQNs';
+// ── TURSO CONFIG ──
+// >>> Preencha os dois valores do seu banco no Turso <<<
+const TURSO_URL   = 'libsql://picking-pedroarchija.aws-us-east-1.turso.io';
+const TURSO_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODI5MTA3MTIsImlkIjoiMDE5ZjFkYmUtMWIwMS03MTI5LWE5MDctZjgwMjc0ZmQ3MWFjIiwia2lkIjoiVk1FTjZlOVZnWjNUbkc0RWxONHRyNUp5bEJCRC11NE00OFd0WGFvWi0wcyIsInJpZCI6IjFjMmM3MWVkLTZlZTItNGYyZi04YzE2LWNhNDc2NWIzZDYyNyJ9.HjBghiQgTICc0UHihAlIt8PfERGtk6v9f7YRIhnFVS0lxEVW09q7LGTphYkK7ADjaAd4oEiEBPP56ffCHLCfBA';
 
-async function supa(path, method='GET', body=null){
-  const headers = {
-    'apikey': SUPA_KEY,
-    'Authorization': 'Bearer ' + SUPA_KEY,
-    'Content-Type': 'application/json'
-  };
-  if(method==='POST') headers['Prefer'] = 'return=representation';
-  if(method==='PATCH') headers['Prefer'] = 'return=minimal';
+// Whitelist de colunas e tipos especiais de cada tabela.
+const SCHEMA = {
+  picking: {
+    columns: ['data','colaborador','romaneio','data_pedido','qnt','tipo','data_ini','hora_ini','data_fim','hora_fim','duracao_min','hora_extra','falta','itens_falta','enderecos_concatenados','obs','finalizado','status_falta','falta_real','falta_resultado','falta_obs_val','falta_validador','falta_validado_em','conf_data_ini','conf_hora_ini','conf_data_fim','conf_hora_fim','conf_duracao_min','conf_conferente','conf_finalizado'],
+    bools: ['hora_extra','finalizado','conf_finalizado'],
+    jsons: ['itens_falta'],
+    orderBy: 'criado_em DESC',
+    limit: 1000
+  },
+  colaboradores: {
+    columns: ['nome','setor','status','obs'],
+    bools: [],
+    jsons: [],
+    orderBy: 'nome ASC',
+    limit: 5000
+  }
+};
 
-  const opts = { method, headers };
-  if(body) opts.body = JSON.stringify(body);
+// Converte valor JS -> argumento do Turso (inteiros/floats vão como string).
+function toArg(v){
+  if(v === null || v === undefined) return { type:'null' };
+  if(typeof v === 'boolean') return { type:'integer', value: v ? '1' : '0' };
+  if(typeof v === 'number') return Number.isInteger(v)
+    ? { type:'integer', value:String(v) } : { type:'float', value:String(v) };
+  return { type:'text', value:String(v) };
+}
+// Converte célula do Turso -> valor JS.
+function fromVal(cell){
+  if(!cell || cell.type === 'null') return null;
+  if(cell.type === 'integer' || cell.type === 'float') return Number(cell.value);
+  return cell.value;
+}
+// Linha do banco -> formato do app (bool real, itens_falta como array).
+function decodeRow(row, def){
+  const out = {};
+  for(const k in row){
+    let v = row[k];
+    if(def.bools.includes(k)) v = !!v;
+    else if(def.jsons.includes(k)){ try{ v = v ? JSON.parse(v) : []; }catch{ v = []; } }
+    out[k] = v;
+  }
+  return out;
+}
+// Payload -> colunas válidas + valores codificados (bool 0/1, JSON string).
+function encodeData(data, def){
+  const cols = [], vals = [];
+  for(const col of def.columns){
+    if(!(col in data)) continue;
+    let v = data[col];
+    if(def.bools.includes(col)) v = v ? 1 : 0;
+    else if(def.jsons.includes(col)) v = JSON.stringify(v == null ? [] : v);
+    cols.push(col); vals.push(v === undefined ? null : v);
+  }
+  return { cols, vals };
+}
 
-  try {
-    const res = await fetch(SUPA_URL + '/rest/v1/' + path, opts);
-    if(!res.ok){
-      const e = await res.text();
-      console.error('Supabase error:', res.status, e);
-      toast('Erro ' + res.status + ': ' + (JSON.parse(e||'{}').message||e), 'error');
-      return null;
+// Executa uma lista de statements no Turso pela API HTTP.
+async function tursoPipeline(stmts){
+  const base = TURSO_URL.replace(/^libsql:/,'https:').replace(/\/+$/,'');
+  const requests = stmts.map(s => ({ type:'execute', stmt:{ sql:s.sql, args:(s.args||[]).map(toArg) } }));
+  requests.push({ type:'close' });
+  const res = await fetch(base + '/v2/pipeline', {
+    method:'POST',
+    headers:{ 'Authorization':'Bearer ' + TURSO_TOKEN, 'Content-Type':'application/json' },
+    body: JSON.stringify({ requests })
+  });
+  if(!res.ok) throw new Error('Turso ' + res.status);
+  const data = await res.json();
+  const out = [];
+  for(const r of data.results){
+    if(r.type === 'error') throw new Error((r.error && r.error.message) || 'Erro no Turso');
+    if(r.response && r.response.type === 'execute'){
+      const rr = r.response.result;
+      const cols = rr.cols.map(c => c.name);
+      out.push(rr.rows.map(row => { const o={}; row.forEach((c,i)=>o[cols[i]]=fromVal(c)); return o; }));
     }
-    const txt = await res.text();
-    return txt ? JSON.parse(txt) : [];
+  }
+  return out;
+}
+
+// Mantém a MESMA assinatura do antigo supa() para não alterar o resto do app.
+// Traduz os caminhos estilo PostgREST usados no app em SQL para o Turso.
+async function supa(path, method='GET', body=null){
+  try {
+    const table = path.split('?')[0];
+    const def = SCHEMA[table];
+    if(!def) throw new Error('Tabela desconhecida: ' + table);
+    const idMatch = path.match(/id=eq\.([^&]+)/);
+    const id = idMatch ? idMatch[1] : null;
+
+    if(method === 'GET'){
+      const [rows] = await tursoPipeline([{ sql:`SELECT * FROM ${table} ORDER BY ${def.orderBy} LIMIT ${def.limit}` }]);
+      return rows.map(r => decodeRow(r, def));
+    }
+    if(method === 'POST'){
+      const { cols, vals } = encodeData(body || {}, def);
+      const ph = cols.map(() => '?').join(',');
+      const [rows] = await tursoPipeline([{ sql:`INSERT INTO ${table} (${cols.join(',')}) VALUES (${ph}) RETURNING *`, args: vals }]);
+      return rows.map(r => decodeRow(r, def));
+    }
+    if(method === 'PATCH'){
+      const { cols, vals } = encodeData(body || {}, def);
+      const set = cols.map(c => `${c} = ?`).join(', ');
+      await tursoPipeline([{ sql:`UPDATE ${table} SET ${set} WHERE id = ?`, args:[...vals, Number(id)] }]);
+      return [];
+    }
+    if(method === 'DELETE'){
+      await tursoPipeline([{ sql:`DELETE FROM ${table} WHERE id = ?`, args:[Number(id)] }]);
+      return [];
+    }
+    return [];
   } catch(err) {
-    console.error('Fetch error:', err);
-    toast('Erro de conexão com o banco. Verifique sua internet.', 'error');
+    console.error('Turso error:', err);
+    toast(err.message || 'Erro de conexão com o banco. Verifique sua internet.', 'error');
     return null;
   }
 }
@@ -968,7 +1058,7 @@ function hoje(){return new Date().toISOString().split('T')[0];}
 function fmtData(d){if(!d)return'—';const[a,m,di]=d.split('-');return`${di}/${m}/${a}`;}
 function nNum(v){return isNaN(Number(v))||v===''?0:Number(v);}
 
-// Mapear registro do Supabase para formato local
+// Mapear registro do Turso para formato local
 function mapRec(r){
   return {
     id: r.id,
@@ -1005,12 +1095,12 @@ function mapRec(r){
   };
 }
 
-// Mapear colaborador do Supabase para formato local
+// Mapear colaborador do Turso para formato local
 function mapColab(c){
   return { id: c.id, nome: c.nome, setor: c.setor||'', status: c.status||'Ativo', obs: c.obs||'' };
 }
 
-// Carregar todos os dados do Supabase
+// Carregar todos os dados do Turso
 async function carregarDados(){
   mostrarLoading(true);
   try{
@@ -1063,7 +1153,7 @@ function statusRitmo(feito, esperado){
   return{txt:`${diff} peças atrasado`,cor:'var(--danger)',icon:'▼',pct};
 }
 
-// save() substituído por operações async do Supabase
+// save() substituído por operações async do Turso
 
 function toast(msg,type='info'){
   const c=document.getElementById('toast-container');
@@ -2508,7 +2598,7 @@ function fecharSidebar(){
   renderDashboard();
 })();
 
-// Auto-refresh a cada 30 segundos
+// Auto-refresh a cada 5 minutos
 setInterval(async()=>{
   await carregarDados();
   const activePage = document.querySelector('.page.active');
@@ -2526,7 +2616,7 @@ setInterval(async()=>{
   const pecasHoje=records.filter(r=>r.data===hoje()).reduce((s,r)=>s+r.qnt,0);
   document.getElementById('meta-badge').textContent=`Meta: ${pecasHoje.toLocaleString('pt-BR')} / ${META} peças`;
   document.getElementById('topbar-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'})+' '+horaAtual();
-}, 30000);
+}, 300000);
 
 // ── CONFERÊNCIA ──
 let filtroConf = 'aguardando';
